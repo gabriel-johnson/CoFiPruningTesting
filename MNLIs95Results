@@ -1,0 +1,114 @@
+1.64 seconds for warmup
+Layer 0, heads 1 2 3 4 5 6 7 8 9 10 11 pruned.
+Layer 1, heads 4 5 6 7 8 9 10 11 pruned.
+Layer 2, heads 2 3 4 5 6 7 8 9 10 11 pruned.
+Layer 3, heads 0 1 2 3 4 5 6 7 8 9 10 11 pruned.
+Layer 4, heads 0 1 2 3 4 5 6 7 8 9 10 11 pruned.
+Layer 5, heads 0 1 2 3 4 5 6 7 8 9 10 11 pruned.
+Layer 6, heads 0 1 2 3 4 5 6 7 8 9 10 11 pruned.
+Layer 7, heads 0 1 2 3 4 5 6 7 8 9 10 11 pruned.
+Layer 8, heads 2 3 4 5 6 7 8 9 10 11 pruned.
+Layer 9, heads 3 4 5 6 7 8 9 10 11 pruned.
+Layer 10, heads 2 3 4 5 6 7 8 9 10 11 pruned.
+Layer 11, heads 0 1 2 3 4 5 6 7 8 9 10 11 pruned.
+Layer: 0
+query: torch.Size([64, 764])
+key: torch.Size([64, 764])
+value: torch.Size([64, 764])
+output: torch.Size([764, 64])
+up: torch.Size([395, 764])
+down: torch.Size([764, 395])
+Layer: 1
+query: torch.Size([256, 764])
+key: torch.Size([256, 764])
+value: torch.Size([256, 764])
+output: torch.Size([764, 256])
+up: torch.Size([353, 764])
+down: torch.Size([764, 353])
+Layer: 2
+query: torch.Size([128, 764])
+key: torch.Size([128, 764])
+value: torch.Size([128, 764])
+output: torch.Size([764, 128])
+up None
+down None
+Layer: 3
+query: None
+key: None
+value: None
+output: None
+up None
+down None
+Layer: 4
+query: None
+key: None
+value: None
+output: None
+up None
+down None
+Layer: 5
+query: None
+key: None
+value: None
+output: None
+up None
+down None
+Layer: 6
+query: None
+key: None
+value: None
+output: None
+up None
+down None
+Layer: 7
+query: None
+key: None
+value: None
+output: None
+up None
+down None
+Layer: 8
+query: torch.Size([128, 764])
+key: torch.Size([128, 764])
+value: torch.Size([128, 764])
+output: torch.Size([764, 128])
+up: torch.Size([263, 764])
+down: torch.Size([764, 263])
+Layer: 9
+query: torch.Size([192, 764])
+key: torch.Size([192, 764])
+value: torch.Size([192, 764])
+output: torch.Size([764, 192])
+up None
+down None
+Layer: 10
+query: torch.Size([128, 764])
+key: torch.Size([128, 764])
+value: torch.Size([128, 764])
+output: torch.Size([764, 128])
+up None
+down None
+Layer: 11
+query: None
+key: None
+value: None
+output: None
+up None
+down None
+The following columns in the evaluation set  don't have a corresponding argument in `CoFiBertForSequenceClassification.forward` and have been ignored: idx, premise, hypothesis.
+Round 0: There are 77 batches in the dataset.
+The following columns in the evaluation set  don't have a corresponding argument in `CoFiBertForSequenceClassification.forward` and have been ignored: idx, premise, hypothesis.
+Round 1: There are 77 batches in the dataset.
+The following columns in the evaluation set  don't have a corresponding argument in `CoFiBertForSequenceClassification.forward` and have been ignored: idx, premise, hypothesis.
+Round 2: There are 77 batches in the dataset.
+The following columns in the evaluation set  don't have a corresponding argument in `CoFiBertForSequenceClassification.forward` and have been ignored: idx, premise, hypothesis.
+Round 3: There are 77 batches in the dataset.
+The following columns in the evaluation set  don't have a corresponding argument in `CoFiBertForSequenceClassification.forward` and have been ignored: idx, premise, hypothesis.
+Round 4: There are 77 batches in the dataset.
+Task: mnli
+Model path: princeton-nlp/CoFi-MNLI-s95
+Model size: 4330279
+Sparsity: 0.949
+accuracy: 0.8054
+seconds/example: 0.000164
+

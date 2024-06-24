@@ -91,60 +91,100 @@ def main():
                        training_args, additional_args)
 
     
-    t_name = None 
-    if data_args.task_name is not None:
-        # Downloading and loading a dataset from the hub.
-        raw_datasets = load_dataset(
-            "./glue.py", data_args.task_name.replace("-", ""), cache_dir=model_args.cache_dir)
-        t_name = data_args.task_name
-    elif data_args.dataset_name is not None:
-        # Downloading and loading a dataset from the hub.
-        raw_datasets = load_dataset(
-            data_args.dataset_name, data_args.dataset_config_name, cache_dir=model_args.cache_dir
-        )
-        t_name = data_args.dataset_name
-    else:
-        # Loading a dataset from your local files.
-        # CSV/JSON training and evaluation files are needed.
-        t_name = data_args.t_name
-        data_files = {"train": data_args.train_file,
-                      "validation": data_args.validation_file}
+    t_name = None
 
-        # Get the test dataset: you can provide your own CSV/JSON test file (see below)
-        # when you use `do_predict` without specifying a GLUE benchmark task.
-        if training_args.do_predict:
-            if data_args.test_file is not None:
-                train_extension = data_args.train_file.split(".")[-1]
-                test_extension = data_args.test_file.split(".")[-1]
-                assert (
-                    test_extension == train_extension
-                ), "`test_file` should have the same extension (csv or json) as `train_file`."
-                data_files["test"] = data_args.test_file
-            else:
-                raise ValueError(
-                    "Need either a GLUE task or a test file for `do_predict`.")
+    raw_datasets = []
 
-        for key in data_files.keys():
-            logger.info(f"load a local file for {key}: {data_files[key]}")
+    multiple_datasets = False
 
-        if data_args.train_file.endswith(".csv"):
-            # Loading a dataset from local csv files
+
+
+    def load_data():
+        if data_args.task_name is not None:
+            # Downloading and loading a dataset from the hub.
             raw_datasets = load_dataset(
-                "csv", data_files=data_files, cache_dir=model_args.cache_dir)
-        elif data_args.train_file.endswith(".tsv"):
-            dataset_dict = {}
-            for key in data_files:
-                dataset_dict[key] = load_from_tsv(data_files[key])
-            raw_datasets = DatasetDict(dataset_dict)
+                "./glue.py", data_args.task_name.replace("-", ""), cache_dir=model_args.cache_dir)
+            t_name = data_args.task_name
+        elif data_args.dataset_name is not None:
+            # Downloading and loading a dataset from the hub.
+            raw_datasets = load_dataset(
+                data_args.dataset_name, data_args.dataset_config_name, cache_dir=model_args.cache_dir
+            )
+            t_name = data_args.dataset_name
         else:
-            # Loading a dataset from local json files
-            raw_datasets = load_dataset(
-                "json", data_files=data_files, cache_dir=model_args.cache_dir)
-    # See more about loading any type of standard or custom dataset at
-    # https://huggingface.co/docs/datasets/loading_datasets.html.
+            # Loading a dataset from your local files.
+            # CSV/JSON training and evaluation files are needed.
+            t_name = data_args.t_name
+            data_files = {"train": data_args.train_file,
+                        "validation": data_args.validation_file}
 
-    # Labels
-    if data_args.task_name is not None:
+            # Get the test dataset: you can provide your own CSV/JSON test file (see below)
+            # when you use `do_predict` without specifying a GLUE benchmark task.
+            if training_args.do_predict:
+                if data_args.test_file is not None:
+                    train_extension = data_args.train_file.split(".")[-1]
+                    test_extension = data_args.test_file.split(".")[-1]
+                    assert (
+                        test_extension == train_extension
+                    ), "`test_file` should have the same extension (csv or json) as `train_file`."
+                    data_files["test"] = data_args.test_file
+                else:
+                    raise ValueError(
+                        "Need either a GLUE task or a test file for `do_predict`.")
+
+            for key in data_files.keys():
+                logger.info(f"load a local file for {key}: {data_files[key]}")
+
+            if data_args.train_file.endswith(".csv"):
+                # Loading a dataset from local csv files
+                raw_datasets = load_dataset(
+                    "csv", data_files=data_files, cache_dir=model_args.cache_dir)
+            elif data_args.train_file.endswith(".tsv"):
+                dataset_dict = {}
+                for key in data_files:
+                    dataset_dict[key] = load_from_tsv(data_files[key])
+                raw_datasets = DatasetDict(dataset_dict)
+            else:
+                # Loading a dataset from local json files
+                raw_datasets = load_dataset(
+                    "json", data_files=data_files, cache_dir=model_args.cache_dir)
+        
+        return raw_datasets
+        # See more about loading any type of standard or custom dataset at
+        # https://huggingface.co/docs/datasets/loading_datasets.html.
+
+        # Labels
+    
+
+    if data_args.task_list is not None:
+        multiple_datasets = True
+        print("\ntasklist:", data_args.task_list,"\n")
+        for index, task in enumerate(data_args.task_list):
+            print("\nabout to call load data on: ", task, "\n")
+            data_args.task_name = task
+            raw_datasets.append(load_data())
+            # print("\nraw_datasets: ", raw_datasets, "\n")
+            # return
+        data_args.task_name = None
+    
+    else:
+        print("\n\nin else???\n\n")
+        raw_datasets = load_data()
+
+    # for some reason this is never gotten to
+    print("\n\nDone loading data. Length of raw_datasets: ", len(raw_datasets))
+    # return
+
+    if data_args.task_list is not None:
+        for index, task in enumerate(data_args.task_list):
+            is_regression = data_args.task_name == "stsb"
+            if not is_regression:
+                label_list = raw_datasets[index]["train"].features["label"].names
+                raw_datasets[index]["num_labels"] = len(label_list)
+            else:
+                raw_datasets[index]["num_labels"] = 1
+
+    elif data_args.task_name is not None:
         is_regression = data_args.task_name == "stsb"
         if not is_regression:
             label_list = raw_datasets["train"].features["label"].names
@@ -164,14 +204,20 @@ def main():
             label_list.sort()  # Let's sort it for determinism
             num_labels = len(label_list)
 
+    print("\n\nabout to set config\n\n")
+
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
-        num_labels=num_labels,
-        finetuning_task=t_name,
+        # num_labels=num_labels,
+        # finetuning_task=t_name,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+
+    logger.info("\n\nconfig: ", config, "\n\n")
+
+    
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
@@ -179,6 +225,10 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+
+    # print("\n\nwe are here??\n\n")
+    logger.info("\n\nwe are here??\n\n")
+
 
     # set up configuration for distillation
     if additional_args.do_distill:
@@ -188,15 +238,32 @@ def main():
     Model = CoFiBertForSequenceClassification if model_args.model_name_or_path.startswith(
         "bert") else CoFiRobertaForSequenceClassification
 
+    # logger.info("\n\nModel: ", Model, "\n\n")
+    
+
     teacher_model = None
     if additional_args.do_distill:
+        logger.info("\n\nwe have do_distill, about to set up and evaluate teacher model\n\n")
+        # logger.info("\n\nadditional_args: \n", additional_args, "\n\n")
+        # logger.info("\n\nconfig: \n", (config), "\n\n")
+
+        logger.info(f"Distillation path: {additional_args.distillation_path}")
+        logger.info(f"config: {config}")
+        
+
+
         teacher_model = Model.from_pretrained(
             additional_args.distillation_path,
             config=deepcopy(config)
         )
+        logger.info("\n\nmodel initizliaex\n\n")
         teacher_model.eval() #! inside has a cofibertmodel #! CofiBertForSequenceClassification
+        logger.infor("\n\nmodel evaled\n\n")
 
     config.do_layer_distill = additional_args.do_layer_distill #! True
+
+    logger.info("\n\nabout to initialize model...\n\n")
+
 
     model = Model.from_pretrained(
         model_args.model_name_or_path,
@@ -230,7 +297,13 @@ def main():
                              target_sparsity=additional_args.target_sparsity,
                              pruning_type=additional_args.pruning_type)
 
-    if data_args.task_name is not None:
+    if data_args.task_list is not None:
+        sentences = []
+        for index, task in enumerate(data_args.task_list):
+            sentences.append(task_to_keys[data_args.task_name])
+        
+    
+    elif data_args.task_name is not None:
         sentence1_key, sentence2_key = task_to_keys[data_args.task_name]
     else:
         # Again, we try to have some nice defaults but don't hesitate to tweak to your use case.
@@ -242,6 +315,9 @@ def main():
                 sentence1_key, sentence2_key = non_label_column_names[:2]
             else:
                 sentence1_key, sentence2_key = non_label_column_names[0], None
+
+    # print("\n\nsentences: ", sentences, "\n\n")
+    # return
 
     # Padding strategy
     if data_args.pad_to_max_length:

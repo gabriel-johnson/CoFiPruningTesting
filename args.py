@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
-
 task_to_keys = {
     "cola": ("sentence", None),
     "mnli": ("premise", "hypothesis"),
@@ -68,6 +67,12 @@ class DataTrainingArguments:
         default=None,
         metadata={"help": "The name of the task to train on: " + ", ".join(task_to_keys.keys())},
     )
+
+    task_list: Optional[list] = field(
+        default=None,
+        metadata={"help": "The list of tasks to train on"}
+    )
+
     dataset_name: Optional[str] = field(
         default=None, metadata={"help": "The name of the dataset to use (via the datasets library)."}
     )
@@ -126,7 +131,20 @@ class DataTrainingArguments:
     test_file: Optional[str] = field(default=None, metadata={"help": "A csv or a json file containing the test data."})
 
     def __post_init__(self):
-        if self.task_name is not None:
+
+        if self.task_name[0] == "[":
+            
+            task_array = self.task_name[1:-1]
+            task_array = task_array.replace(" ", "")
+            task_array = task_array.split(',')
+
+            # for task in task_array:
+            #     task = task.lower()
+
+            self.task_list = [task.lower() for task in task_array]
+            self.task_name = None
+
+        elif self.task_name is not None:
             self.task_name = self.task_name.lower()
             if self.task_name not in task_to_keys.keys():
                 raise ValueError("Unknown task, you should pick one in " + ",".join(task_to_keys.keys()))
