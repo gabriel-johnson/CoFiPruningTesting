@@ -93,7 +93,6 @@ def main():
     
     t_name = None
 
-    raw_datasets = []
 
     multiple_datasets = False
 
@@ -157,29 +156,28 @@ def main():
     
 
     if data_args.task_list is not None:
+        raw_datasets = []
+
         multiple_datasets = True
         print("\ntasklist:", data_args.task_list,"\n")
         for index, task in enumerate(data_args.task_list):
             print("\nabout to call load data on: ", task, "\n")
             data_args.task_name = task
             raw_datasets.append(load_data())
-            # print("\nraw_datasets: ", raw_datasets, "\n")
-            # return
+
         data_args.task_name = None
     
     else:
-        print("\n\nin else???\n\n")
         raw_datasets = load_data()
 
-    # for some reason this is never gotten to
     print("\n\nDone loading data. Length of raw_datasets: ", len(raw_datasets))
-    # return
-
+    label_list = []
     if data_args.task_list is not None:
         for index, task in enumerate(data_args.task_list):
             is_regression = data_args.task_name == "stsb"
             if not is_regression:
-                label_list = raw_datasets[index]["train"].features["label"].names
+                
+                label_list.append(raw_datasets[index]["train"].features["label"].names)
                 raw_datasets[index]["num_labels"] = len(label_list)
             else:
                 raw_datasets[index]["num_labels"] = 1
@@ -204,7 +202,6 @@ def main():
             label_list.sort()  # Let's sort it for determinism
             num_labels = len(label_list)
 
-    print("\n\nabout to set config\n\n")
 
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
@@ -225,9 +222,6 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
-
-    # print("\n\nwe are here??\n\n")
-    logger.info("\n\nwe are here??\n\n")
 
 
     # set up configuration for distillation
@@ -258,7 +252,7 @@ def main():
         )
         logger.info("\n\nmodel initizliaex\n\n")
         teacher_model.eval() #! inside has a cofibertmodel #! CofiBertForSequenceClassification
-        logger.infor("\n\nmodel evaled\n\n")
+        logger.info("\n\nmodel evaled\n\n")
 
     config.do_layer_distill = additional_args.do_layer_distill #! True
 
@@ -300,7 +294,7 @@ def main():
     if data_args.task_list is not None:
         sentences = []
         for index, task in enumerate(data_args.task_list):
-            sentences.append(task_to_keys[data_args.task_name])
+            sentences.append(task_to_keys[task])
         
     
     elif data_args.task_name is not None:
@@ -328,23 +322,55 @@ def main():
 
     # Some models have set the order of the labels to use, so let's make sure we do use it.
     label_to_id = None
-    if (
-        model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id
-        and data_args.task_name is not None
-        and not is_regression
-    ):
-        # Some have all caps in their config, some don't.
-        label_name_to_id = {k.lower(): v for k, v in model.config.label2id.items()}
-        if list(sorted(label_name_to_id.keys())) == list(sorted(label_list)):
-            label_to_id = {i: int(label_name_to_id[label_list[i]]) for i in range(num_labels)}
-        else:
-            logger.warning(
-                "Your model seems to have been trained with labels, but they don't match the dataset: ",
-                f"model labels: {list(sorted(label_name_to_id.keys()))}, dataset labels: {list(sorted(label_list))}."
-                "\nIgnoring the model labels as a result.",
-            )
-    elif data_args.task_name is None and not is_regression:
-        label_to_id = {v: i for i, v in enumerate(label_list)}
+    # print("\n\nmodel config label2id: ", PretrainedConfig(num_labels=raw_datasets[index]["num_labels"]).label2id, "\n\n")
+    # return
+    if multiple_datasets is True:
+
+                # raw_datasets[index]["num_labels"] = len(label_list)
+
+        
+        for index, task in enumerate(data_args.task_list):
+            if (
+                model.config.label2id != PretrainedConfig(num_labels=raw_datasets[index]["num_labels"]).label2id
+                and task is not None
+                and raw_datasets[index]["num_labels"] == len(raw_datasets[index]["train"].features["label"].names)
+            ):
+                # Some have all caps in their config, some don't.
+                label_name_to_id = {k.lower(): v for k, v in model.config.label2id.items()}
+                if list(sorted(label_name_to_id.keys())) == list(sorted(label_list[index])):
+                    label_to_id = {i: int(label_name_to_id[label_list[i]]) for i in range(raw_datasets[index]["num_labels"])}
+                else:
+                    logger.warning(
+                        "Your model seems to have been trained with labels, but they don't match the dataset: ",
+                        f"model labels: {list(sorted(label_name_to_id.keys()))}, dataset labels: {list(sorted(label_list))}."
+                        "\nIgnoring the model labels as a result.",
+                    )
+            elif task is None and not is_regression:
+                label_to_id = {v: i for i, v in enumerate(label_list)}
+    
+    if multiple_datasets is False:
+        if (
+            model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id
+            and data_args.task_name is not None
+            and not is_regression
+        ):
+            # Some have all caps in their config, some don't.
+            label_name_to_id = {k.lower(): v for k, v in model.config.label2id.items()}
+            if list(sorted(label_name_to_id.keys())) == list(sorted(label_list)):
+                label_to_id = {i: int(label_name_to_id[label_list[i]]) for i in range(num_labels)}
+            else:
+                logger.warning(
+                    "Your model seems to have been trained with labels, but they don't match the dataset: ",
+                    f"model labels: {list(sorted(label_name_to_id.keys()))}, dataset labels: {list(sorted(label_list))}."
+                    "\nIgnoring the model labels as a result.",
+                )
+        elif data_args.task_name is None and not is_regression:
+            label_to_id = {v: i for i, v in enumerate(label_list)}
+
+    
+
+
+
 
     if label_to_id is not None:
         model.config.label2id = label_to_id
@@ -372,45 +398,114 @@ def main():
             result["label"] = [(label_to_id[l] if l != -1 else -1) for l in examples["label"]]
         return result
 
-    with training_args.main_process_first(desc="dataset map pre-processing"):
-        raw_datasets = raw_datasets.map(
-            preprocess_function,
-            batched=True,
-            load_from_cache_file=not data_args.overwrite_cache,
-            desc="Running tokenizer on dataset",
-        ) #! get dataset
+    if multiple_datasets is True:
+
+        train_dataset = []
+
+        for index, task in enumerate(data_args.task_list):
     
-    if training_args.do_train:
-        if "train" not in raw_datasets:
-            raise ValueError("--do_train requires a train dataset")
-        train_dataset = raw_datasets["train"]
-        if data_args.max_train_samples is not None:
-            train_dataset = train_dataset.select(range(data_args.max_train_samples))
+            print("\n\nraw_datasets at ", index, ":\n", (raw_datasets[index]), "\n\n")
 
-    if training_args.do_eval:
-        if "validation" not in raw_datasets and "validation_matched" not in raw_datasets:
-            raise ValueError("--do_eval requires a validation dataset")
-        eval_dataset = raw_datasets["validation_matched" if data_args.task_name == "mnli" else "validation"]
-        if data_args.max_eval_samples is not None:
-            eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
+            print("also we have sentences: \n", sentences, "\n\n")
+            # return
 
-    if training_args.do_predict or data_args.task_name is not None or data_args.test_file is not None:
-        if "test" not in raw_datasets and "test_matched" not in raw_datasets:
-            raise ValueError("--do_predict requires a test dataset")
-        predict_dataset = raw_datasets["test_matched" if data_args.task_name == "mnli" else "test"]
-        if data_args.max_predict_samples is not None:
-            predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
+            temp_raw_dataset= DatasetDict() 
+            # temp_raw_dataset['train'] = (raw_datasets[index])['train']
+            # temp_raw_dataset['validation'] = (raw_datasets[index])['validation']
+            # temp_raw_dataset['test'] = (raw_datasets[index])['test']
 
-    # Log a few random samples from the training set:
-    if training_args.do_train:
-        for index in random.sample(range(len(train_dataset)), 3):
-            logger.info(f"Sample {index} of the training set: {train_dataset[index]}.")
+            # temp_raw_dataset['num_labels'] = (raw_datasets[index])['num_labels']
 
-    # Get the metric function
-    if data_args.task_name is not None:
-        metric = load_metric("glue", data_args.task_name)
+            for key, dataset in raw_datasets[index].items():
+                if key != "num_labels":
+                    # Deeply copy each Dataset and assign it to the new DatasetDict
+                    temp_raw_dataset[key] = raw_datasets[index][key]
+
+            sentence1_key = sentences[index][0]
+            sentence2_key = sentences[index][1]
+
+
+
+            with training_args.main_process_first(desc="dataset map pre-processing"):
+                temp_raw_dataset = temp_raw_dataset.map(
+                    preprocess_function,
+                    batched=True,
+                    load_from_cache_file=not data_args.overwrite_cache,
+                    desc="Running tokenizer on dataset",
+                ) #! get dataset
+            
+            if training_args.do_train:
+                if "train" not in raw_datasets[index]:
+                    raise ValueError("--do_train requires a train dataset")
+                train_dataset.append(raw_datasets[index]["train"])
+                if data_args.max_train_samples is not None:
+                    train_dataset[index] = train_dataset[index].select(range(data_args.max_train_samples))
+
+            if training_args.do_eval:
+                if "validation" not in raw_datasets[index] and "validation_matched" not in raw_datasets[index]:
+                    raise ValueError("--do_eval requires a validation dataset")
+                eval_dataset = raw_datasets[index]["validation_matched" if data_args.task_list[index] == "mnli" else "validation"]
+                if data_args.max_eval_samples is not None:
+                    eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
+
+            if training_args.do_predict or data_args.task_list[index] is not None or data_args.test_file is not None:
+                if "test" not in raw_datasets[index] and "test_matched" not in raw_datasets[index]:
+                    raise ValueError("--do_predict requires a test dataset")
+                predict_dataset = raw_datasets[index]["test_matched" if data_args.task_list[index] == "mnli" else "test"]
+                if data_args.max_predict_samples is not None:
+                    predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
+
+            # Log a few random samples from the training set:
+            if training_args.do_train:
+                for i in random.sample(range(len(train_dataset[index])), 3):
+                    logger.info(f"Sample {i} of the training set: {train_dataset[index][i]}.")
+
+            # Get the metric function
+            if data_args.task_name is not None:
+                metric = load_metric("glue", data_args.task_name)
+            else:
+                metric = load_metric("accuracy")
+
     else:
-        metric = load_metric("accuracy")
+        with training_args.main_process_first(desc="dataset map pre-processing"):
+            raw_datasets = raw_datasets.map(
+                preprocess_function,
+                batched=True,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer on dataset",
+            ) #! get dataset
+        
+        if training_args.do_train:
+            if "train" not in raw_datasets:
+                raise ValueError("--do_train requires a train dataset")
+            train_dataset = raw_datasets["train"]
+            if data_args.max_train_samples is not None:
+                train_dataset = train_dataset.select(range(data_args.max_train_samples))
+
+        if training_args.do_eval:
+            if "validation" not in raw_datasets and "validation_matched" not in raw_datasets:
+                raise ValueError("--do_eval requires a validation dataset")
+            eval_dataset = raw_datasets["validation_matched" if data_args.task_name == "mnli" else "validation"]
+            if data_args.max_eval_samples is not None:
+                eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
+
+        if training_args.do_predict or data_args.task_name is not None or data_args.test_file is not None:
+            if "test" not in raw_datasets and "test_matched" not in raw_datasets:
+                raise ValueError("--do_predict requires a test dataset")
+            predict_dataset = raw_datasets["test_matched" if data_args.task_name == "mnli" else "test"]
+            if data_args.max_predict_samples is not None:
+                predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
+
+        # Log a few random samples from the training set:
+        if training_args.do_train:
+            for index in random.sample(range(len(train_dataset)), 3):
+                logger.info(f"Sample {index} of the training set: {train_dataset[index]}.")
+
+        # Get the metric function
+        if data_args.task_name is not None:
+            metric = load_metric("glue", data_args.task_name)
+        else:
+            metric = load_metric("accuracy")
 
     # You can define your custom compute_metrics function. It takes an `EvalPrediction` object (a namedtuple with a
     # predictions and label_ids field) and has to return a dictionary string to float.
@@ -452,6 +547,7 @@ def main():
         tokenizer=tokenizer,
         data_collator=data_collator,
         l0_module=l0_module,
+        # multiple_tasks=multiple_datasets,
         teacher_model=teacher_model
     )
 

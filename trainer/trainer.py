@@ -87,6 +87,7 @@ class CoFiTrainer(Trainer):
             compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
             l0_module=None,
             teacher_model=None,
+            # multiple_tasks=None,
             **kwargs,
     ):
 
