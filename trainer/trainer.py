@@ -180,7 +180,9 @@ class CoFiTrainer(Trainer):
     def train(self, multiple_tasks, task_arr, eval_arr):
         if multiple_tasks is True:
             for (index, task) in enumerate(task_arr):
-                    self.train_dataset = train_dataloader = task
+                    self.train_dataset = task
+                    train_dataloader = self.get_train_dataloader()
+
                     self.eval_dataset = eval_dataset = eval_arr[index]
                     num_update_steps_per_epoch = len(
                         train_dataloader) // self.args.gradient_accumulation_steps

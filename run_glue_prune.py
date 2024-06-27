@@ -174,9 +174,10 @@ def main():
     print("\n\nDone loading data. Length of raw_datasets: ", len(raw_datasets))
     label_list = []
     if data_args.task_list is not None:
+        is_regression = []
         for index, task in enumerate(data_args.task_list):
-            is_regression = data_args.task_name == "stsb"
-            if not is_regression:
+            is_regression.append(data_args.task_name == "stsb")
+            if not is_regression[index]:
                 
                 label_list.append(raw_datasets[index]["train"].features["label"].names)
                 raw_datasets[index]["num_labels"] = len(label_list)
@@ -213,8 +214,6 @@ def main():
         use_auth_token=True if model_args.use_auth_token else None,
     )
 
-    logger.info("\n\nconfig: ", config, "\n\n")
-
     
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
@@ -238,27 +237,13 @@ def main():
 
     teacher_model = None
     if additional_args.do_distill:
-        logger.info("\n\nwe have do_distill, about to set up and evaluate teacher model\n\n")
-        # logger.info("\n\nadditional_args: \n", additional_args, "\n\n")
-        # logger.info("\n\nconfig: \n", (config), "\n\n")
-
-        logger.info(f"Distillation path: {additional_args.distillation_path}")
-        logger.info(f"config: {config}")
-        
-
-
         teacher_model = Model.from_pretrained(
             additional_args.distillation_path,
             config=deepcopy(config)
         )
-        logger.info("\n\nmodel initizliaex\n\n")
         teacher_model.eval() #! inside has a cofibertmodel #! CofiBertForSequenceClassification
-        logger.info("\n\nmodel evaled\n\n")
 
     config.do_layer_distill = additional_args.do_layer_distill #! True
-
-    logger.info("\n\nabout to initialize model...\n\n")
-
 
     model = Model.from_pretrained(
         model_args.model_name_or_path,
@@ -311,8 +296,6 @@ def main():
             else:
                 sentence1_key, sentence2_key = non_label_column_names[0], None
 
-    # print("\n\nsentences: ", sentences, "\n\n")
-    # return
 
     # Padding strategy
     if data_args.pad_to_max_length:
@@ -323,14 +306,16 @@ def main():
 
     # Some models have set the order of the labels to use, so let's make sure we do use it.
     label_to_id = None
-    # print("\n\nmodel config label2id: ", PretrainedConfig(num_labels=raw_datasets[index]["num_labels"]).label2id, "\n\n")
-    # return
     if multiple_datasets is True:
         for index, task in enumerate(data_args.task_list):
+            print("\n",model.config.label2id != PretrainedConfig(num_labels=raw_datasets[index]["num_labels"]).label2id , "\n")
+            print("\n", task is not None, "\n")
+            print("\n", not is_regression[index], "\n")
+
             if (
                 model.config.label2id != PretrainedConfig(num_labels=raw_datasets[index]["num_labels"]).label2id
                 and task is not None
-                and raw_datasets[index]["num_labels"] == len(raw_datasets[index]["train"].features["label"].names)
+                and not is_regression[index]
             ):
                 # Some have all caps in their config, some don't.
                 label_name_to_id = {k.lower(): v for k, v in model.config.label2id.items()}
@@ -365,6 +350,8 @@ def main():
             label_to_id = {v: i for i, v in enumerate(label_list)}
 
     
+    print("\n\nlabel 2 id:\n", label_to_id, "\n\n")
+    return
 
 
 
