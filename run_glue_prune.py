@@ -169,6 +169,7 @@ def main():
     
     else:
         raw_datasets = load_data()
+        data_args.task_list = None
 
     print("\n\nDone loading data. Length of raw_datasets: ", len(raw_datasets))
     label_list = []
@@ -325,10 +326,6 @@ def main():
     # print("\n\nmodel config label2id: ", PretrainedConfig(num_labels=raw_datasets[index]["num_labels"]).label2id, "\n\n")
     # return
     if multiple_datasets is True:
-
-                # raw_datasets[index]["num_labels"] = len(label_list)
-
-        
         for index, task in enumerate(data_args.task_list):
             if (
                 model.config.label2id != PretrainedConfig(num_labels=raw_datasets[index]["num_labels"]).label2id
@@ -348,7 +345,7 @@ def main():
             elif task is None and not is_regression:
                 label_to_id = {v: i for i, v in enumerate(label_list)}
     
-    if multiple_datasets is False:
+    else:
         if (
             model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id
             and data_args.task_name is not None
@@ -401,6 +398,8 @@ def main():
     if multiple_datasets is True:
 
         train_dataset = []
+        eval_dataset = []
+        predict_dataset = []
 
         for index, task in enumerate(data_args.task_list):
     
@@ -439,21 +438,21 @@ def main():
                     raise ValueError("--do_train requires a train dataset")
                 train_dataset.append(raw_datasets[index]["train"])
                 if data_args.max_train_samples is not None:
-                    train_dataset[index] = train_dataset[index].select(range(data_args.max_train_samples))
+                    train_dataset[index].append(train_dataset[index].select(range(data_args.max_train_samples)))
 
             if training_args.do_eval:
                 if "validation" not in raw_datasets[index] and "validation_matched" not in raw_datasets[index]:
                     raise ValueError("--do_eval requires a validation dataset")
-                eval_dataset = raw_datasets[index]["validation_matched" if data_args.task_list[index] == "mnli" else "validation"]
+                eval_dataset.append(raw_datasets[index]["validation_matched" if data_args.task_list[index] == "mnli" else "validation"])
                 if data_args.max_eval_samples is not None:
-                    eval_dataset = eval_dataset.select(range(data_args.max_eval_samples))
+                    eval_dataset.append(eval_dataset.select(range(data_args.max_eval_samples)))
 
             if training_args.do_predict or data_args.task_list[index] is not None or data_args.test_file is not None:
                 if "test" not in raw_datasets[index] and "test_matched" not in raw_datasets[index]:
                     raise ValueError("--do_predict requires a test dataset")
-                predict_dataset = raw_datasets[index]["test_matched" if data_args.task_list[index] == "mnli" else "test"]
+                predict_dataset.append(raw_datasets[index]["test_matched" if data_args.task_list[index] == "mnli" else "test"])
                 if data_args.max_predict_samples is not None:
-                    predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
+                    predict_dataset.append(predict_dataset.select(range(data_args.max_predict_samples)))
 
             # Log a few random samples from the training set:
             if training_args.do_train:
@@ -547,12 +546,13 @@ def main():
         tokenizer=tokenizer,
         data_collator=data_collator,
         l0_module=l0_module,
-        # multiple_tasks=multiple_datasets,
         teacher_model=teacher_model
     )
 
+
+    # change epoch loop to here. we can set up everythin in new function, and each iteration call the single epoch function with each dataset
     if training_args.do_train:
-        trainer.train()
+        trainer.train(multiple_datasets, train_dataset, eval_dataset)
         trainer.save_model()
         tokenizer.save_pretrained(training_args.output_dir)
 
