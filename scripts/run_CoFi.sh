@@ -83,7 +83,7 @@ fi
 
 mkdir -p $output_dir
 
-python3 $code_dir/run_glue_prune.py \
+ CUDA_LAUNCH_BLOCKING=1 python3 $code_dir/run_glue_prune.py \
 	   --output_dir ${output_dir} \
 	   --logging_steps ${logging_steps} \
 	   --task_name ${task_name} \

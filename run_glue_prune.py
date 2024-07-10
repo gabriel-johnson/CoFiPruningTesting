@@ -40,7 +40,6 @@ task_to_keys = {
     "wnli": ("sentence1", "sentence2"),
 }
 
-glue_token_list = ['<cola>', '<sst2>']
 
 logger = logging.getLogger(__name__)
 
@@ -197,15 +196,19 @@ def main():
 
     print("\n\nDone loading data. Length of raw_datasets: ", len(raw_datasets))
 
+    glue_token_list = {"additional_special_tokens": ['<cola>', '<sst2>']}
 
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
         use_fast=model_args.use_fast_tokenizer,
         revision=model_args.model_revision,
-        additional_special_tokens=glue_token_list,
+        # additional_special_tokens=glue_token_list,
+        max_length=56,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+
+    # tokenizer.add_special_tokens(glue_token_list)
 
 
     label_count = 0
@@ -218,9 +221,9 @@ def main():
             test_text, test_label = data_formater.cola_label_map(task["test"], label_count)
             val_text, val_label = data_formater.cola_label_map(task["validation"], label_count)
 
-            train_encodings = tokenizer(train_text, truncation=True, padding=True)
-            val_encodings = tokenizer(val_text, truncation=True, padding=True)
-            test_encodings = tokenizer(test_text, truncation=True, padding=True)
+            train_encodings = tokenizer(train_text, max_length=56, truncation=True, padding='max_length')
+            val_encodings = tokenizer(val_text, max_length=56, truncation=True, padding='max_length')
+            test_encodings = tokenizer(test_text, max_length=56, truncation=True, padding='max_length')
 
             train_dataset = CustomDataset(train_encodings, train_label, "cola")
             val_dataset = CustomDataset(val_encodings, val_label, "cola")
@@ -231,6 +234,11 @@ def main():
                 'test': test_dataset, 
                 'validation': val_dataset,
             }))
+
+            print("\n\ntrain ex:", train_dataset.__getitem__(0), "\n")
+            print("\n\nval ex:", val_dataset.__getitem__(0), "\n")
+            print("\n\ntest ex:", test_dataset.__getitem__(0), "\n")
+
 
             label_count = label_count + 2
         
@@ -239,9 +247,9 @@ def main():
             test_text, test_label = data_formater.sst2_label_map(task["test"], label_count)
             val_text, val_label = data_formater.sst2_label_map(task["validation"], label_count)
 
-            train_encodings = tokenizer(train_text, truncation=True, padding=True)
-            val_encodings = tokenizer(val_text, truncation=True, padding=True)
-            test_encodings = tokenizer(test_text, truncation=True, padding=True)
+            train_encodings = tokenizer(train_text, max_length=56, truncation=True, padding='max_length')
+            val_encodings = tokenizer(val_text, max_length=56, truncation=True, padding='max_length')
+            test_encodings = tokenizer(test_text, max_length=56, truncation=True, padding='max_length')
 
             train_dataset = CustomDataset(train_encodings, train_label, "cola")
             val_dataset = CustomDataset(val_encodings, val_label, "cola")
@@ -252,6 +260,10 @@ def main():
                 'test': test_dataset, 
                 'validation': val_dataset,
             }))
+
+            print("\n\ntrain ex:", train_dataset.__getitem__(0), "\n")
+            print("\n\nval ex:", val_dataset.__getitem__(0), "\n")
+            print("\n\ntest ex:", test_dataset.__getitem__(0), "\n")
 
 
             label_count = label_count + 2
@@ -290,7 +302,8 @@ def main():
                 if num <= length_arr[idx] and data.__len__() > idx_arr[idx]:
                     shuffeld_dataset.append(data.__getitem__(idx_arr[idx]))
                     idx_arr[idx] = idx_arr[idx] + 1
-                    continue
+                    break
+        return shuffeld_dataset
 
 
 
@@ -308,12 +321,13 @@ def main():
     label_list = []
     if data_args.task_list is not None:
         is_regression = []
+        num_labels = 0
         for index, task in enumerate(data_args.task_list):
             is_regression.append(data_args.task_name == "stsb")
             if not is_regression[index]:
-                
-                label_list.append(raw_datasets[index]["train"].features["label"].names)
-                raw_datasets[index]["num_labels"] = len(label_list)
+                for label in raw_datasets[index]["train"].features["label"].names:
+                    label_list.append(label)
+                    num_labels = num_labels + 1
             else:
                 raw_datasets[index]["num_labels"] = 1
        
@@ -338,18 +352,24 @@ def main():
             label_list.sort()  # Let's sort it for determinism
             num_labels = len(label_list)
 
+    print("\n\nlabel list: \n", label_list, "\n")
+    is_regression = False
+
+    label_map = {i: label for i, label in enumerate(label_list)}
+
+
+
 
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
-        # num_labels=num_labels,
-        # finetuning_task=t_name,
+        num_labels=num_labels,
+        finetuning_task=data_args.task_list,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
+        id2label=label_map,
+        label2id={label: i for i, label in enumerate(label_list)},
         use_auth_token=True if model_args.use_auth_token else None,
     )
-
-    
-    
 
 
     # set up configuration for distillation
@@ -382,6 +402,7 @@ def main():
         use_auth_token=True if model_args.use_auth_token else None,
     ) #! inside the function, we get the original struct  #! CofiBertForSequenceClassification
 
+    model.resize_token_embeddings(len(tokenizer))
     # initialize the layer transformation matrix to be an identity matrix
     if additional_args.do_layer_distill:
         initialize_layer_transformation(model)
@@ -434,52 +455,27 @@ def main():
 
     # Some models have set the order of the labels to use, so let's make sure we do use it.
     label_to_id = None
-    if multiple_datasets is True:
-        for index, task in enumerate(data_args.task_list):
-            # print("\n",model.config.label2id != PretrainedConfig(num_labels=raw_datasets[index]["num_labels"]).label2id , "\n")
-            # print("\n", task is not None, "\n")
-            # print("\n", not is_regression[index], "\n")
-
-            if (
-                model.config.label2id != PretrainedConfig(num_labels=raw_datasets[index]["num_labels"]).label2id
-                and task is not None
-                and not is_regression[index]
-            ):
-                # Some have all caps in their config, some don't.
-                label_name_to_id = {k.lower(): v for k, v in model.config.label2id.items()}
-                if list(sorted(label_name_to_id.keys())) == list(sorted(label_list[index])):
-                    label_to_id = {i: int(label_name_to_id[label_list[i]]) for i in range(raw_datasets[index]["num_labels"])}
-                else:
-                    logger.warning(
-                        "Your model seems to have been trained with labels, but they don't match the dataset: ",
-                        f"model labels: {list(sorted(label_name_to_id.keys()))}, dataset labels: {list(sorted(label_list))}."
-                        "\nIgnoring the model labels as a result.",
-                    )
-            elif task is None and not is_regression:
-                label_to_id = {v: i for i, v in enumerate(label_list)}
     
-    else:
-        if (
-            model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id
-            and data_args.task_name is not None
-            and not is_regression
-        ):
-            # Some have all caps in their config, some don't.
-            label_name_to_id = {k.lower(): v for k, v in model.config.label2id.items()}
-            if list(sorted(label_name_to_id.keys())) == list(sorted(label_list)):
-                label_to_id = {i: int(label_name_to_id[label_list[i]]) for i in range(num_labels)}
-            else:
-                logger.warning(
-                    "Your model seems to have been trained with labels, but they don't match the dataset: ",
-                    f"model labels: {list(sorted(label_name_to_id.keys()))}, dataset labels: {list(sorted(label_list))}."
-                    "\nIgnoring the model labels as a result.",
-                )
-        elif data_args.task_name is None and not is_regression:
-            label_to_id = {v: i for i, v in enumerate(label_list)}
+    
+    if (
+        model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id
+        and (data_args.task_name is not None or data_args.task_list is not None)
+        and not is_regression
+    ):
+        # Some have all caps in their config, some don't.
+        label_name_to_id = {k.lower(): v for k, v in model.config.label2id.items()}
+        if list(sorted(label_name_to_id.keys())) == list(sorted(label_list)):
+            label_to_id = {i: int(label_name_to_id[label_list[i]]) for i in range(num_labels)}
+        else:
+            logger.warning(
+                "Your model seems to have been trained with labels, but they don't match the dataset: ",
+                f"model labels: {list(sorted(label_name_to_id.keys()))}, dataset labels: {list(sorted(label_list))}."
+                "\nIgnoring the model labels as a result.",
+            )
+    elif data_args.task_name is None and not is_regression:
+        label_to_id = {v: i for i, v in enumerate(label_list)}
 
     
-    # return
-
 
 
 
@@ -645,7 +641,7 @@ def main():
         data_collator = None
 
     train_dataset = combined_dataset_dict["train"]
-    eval_dataset = combined_dataset_dict["evaluation"]
+    eval_dataset = combined_dataset_dict["validation"]
 
     logger.info(
         f"************* {len(train_dataset)} Training Examples Loaded *************")
