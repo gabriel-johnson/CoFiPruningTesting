@@ -174,7 +174,17 @@ class CoFiTrainer(Trainer):
                 self.lr_scheduler = None
 
     def train(self):
-        train_dataloader = self.get_train_dataloader()
+        if self.train_dataset is None:
+            raise ValueError("Trainer: training requires a train_dataset.")
+        # train_sampler = self._get_train_sampler()
+        train_dataloader = DataLoader(
+                                    self.train_dataset,
+                                    batch_size=self.args.eval_batch_size,
+                                    shuffle=True,
+                                    # sampler=train_sampler,
+                                    collate_fn=self.data_collator,
+                                    drop_last=self.args.dataloader_drop_last,
+                                    )
         num_update_steps_per_epoch = len(
             train_dataloader) // self.args.gradient_accumulation_steps
         num_update_steps_per_epoch = max(num_update_steps_per_epoch, 1) #! 12272
@@ -497,7 +507,17 @@ class CoFiTrainer(Trainer):
         return PredictionOutput(predictions=all_preds, label_ids=all_labels, metrics=metrics)
 
     def evaluate(self, eval_dataset: Optional[Dataset] = None) -> Tuple[Dict[str, float], List]:
-        eval_dataloader = self.get_eval_dataloader(eval_dataset)
+        # eval_sampler = self._get_eval_sampler(eval_dataset)
+
+        eval_dataloader = DataLoader(
+            self.eval_dataset,
+            # sampler=eval_sampler,
+            batch_size=self.args.eval_batch_size,
+            collate_fn=self.data_collator,
+            drop_last=self.args.dataloader_drop_last,
+            shuffle=True
+        )
+
         output = self.prediction_loop(
             eval_dataloader, description="Evaluation")
 
@@ -523,7 +543,7 @@ class CoFiTrainer(Trainer):
             for na in name:
                 if na in output.metrics:
                     eval_score = output.metrics[na]
-                    break
+                    # break
 
         # logger.info(f"starting saving best: {self.global_step} {self.start_saving_best}")
 

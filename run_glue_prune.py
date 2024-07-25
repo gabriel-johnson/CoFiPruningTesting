@@ -9,10 +9,10 @@ import datasets
 import numpy as np
 import torch
 import transformers
-from datasets import load_dataset, load_metric, DatasetDict, concatenate_datasets, interleave_datasets
+from datasets import load_dataset, load_metric, DatasetDict
 from transformers import AutoConfig, AutoTokenizer, EvalPrediction, default_data_collator, DataCollatorWithPadding
 from transformers import (HfArgumentParser, TrainingArguments, PretrainedConfig,
-                          glue_output_modes, glue_tasks_num_labels, set_seed)
+                          glue_output_modes, set_seed)
 
 from args import AdditionalArguments, DataTrainingArguments
 from utils.cofi_utils import *
@@ -40,12 +40,22 @@ task_to_keys = {
     "wnli": ("sentence1", "sentence2"),
 }
 
+glue_tasks_num_labels = {
+    "cola": 2,
+    "mnli": 3,
+    "mrpc": 2,
+    "sst2": 2,
+    "stsb": 1,
+    "qqp": 2,
+    "qnli": 2,
+    "rte": 2,
+    "wnli": 2,
+}
 
 logger = logging.getLogger(__name__)
 
 class CustomDataset(torch.utils.data.Dataset):
-    def __init__(self, encodings, labels, task):
-        self.task = task
+    def __init__(self, encodings, labels):
         self.encodings = encodings
         self.labels = labels
 
@@ -57,6 +67,15 @@ class CustomDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.labels)
 
+class ConcatDataset(CustomDataset):
+    def __init__(self, *datasets):
+        self.datasets = datasets
+
+    def __getitem__(self, i):
+        return tuple(d[i] for d in self.datasets)
+
+    def __len__(self):
+        return min(len(d) for d in self.datasets)
 
 def main():
     parser = HfArgumentParser(
@@ -166,8 +185,6 @@ def main():
                 raw_datasets = load_dataset(
                     "json", data_files=data_files, cache_dir=model_args.cache_dir)
         
-        print("\n\nHere is an example of what we've got: \n", raw_datasets['train'][0], "\n")
-
         return raw_datasets
         # See more about loading any type of standard or custom dataset at
         # https://huggingface.co/docs/datasets/loading_datasets.html.
@@ -179,14 +196,9 @@ def main():
         raw_datasets = []
 
         multiple_datasets = True
-        print("\ntasklist:", data_args.task_list,"\n")
         for index, task in enumerate(data_args.task_list):
-            print("\nabout to call load data on: ", task, "\n")
             data_args.task_name = task
             raw_datasets.append(load_data())
-        # raw_datasets = {task: load_dataset(
-        #         "./glue.py", task.replace("-", ""), cache_dir=model_args.cache_dir) for task in data_args.task_list}
-        # datasets = {task: load_dataset('glue', task) for task in tasks}
         data_args.task_name = None
 
     
@@ -194,142 +206,23 @@ def main():
         raw_datasets = load_data()
         data_args.task_list = None
 
-    print("\n\nDone loading data. Length of raw_datasets: ", len(raw_datasets))
 
-    glue_token_list = {"additional_special_tokens": ['<cola>', '<sst2>']}
-
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
-        cache_dir=model_args.cache_dir,
-        use_fast=model_args.use_fast_tokenizer,
-        revision=model_args.model_revision,
-        # additional_special_tokens=glue_token_list,
-        max_length=56,
-        use_auth_token=True if model_args.use_auth_token else None,
-    )
-
-    # tokenizer.add_special_tokens(glue_token_list)
-
-
-    label_count = 0
-
-    some_new_temp_datasets = []
-
-    for (index, task) in enumerate(raw_datasets):
-        if data_args.task_list[index] == 'cola':
-            train_text, train_label = data_formater.cola_label_map(task["train"], label_count)
-            test_text, test_label = data_formater.cola_label_map(task["test"], label_count)
-            val_text, val_label = data_formater.cola_label_map(task["validation"], label_count)
-
-            train_encodings = tokenizer(train_text, max_length=56, truncation=True, padding='max_length')
-            val_encodings = tokenizer(val_text, max_length=56, truncation=True, padding='max_length')
-            test_encodings = tokenizer(test_text, max_length=56, truncation=True, padding='max_length')
-
-            train_dataset = CustomDataset(train_encodings, train_label, "cola")
-            val_dataset = CustomDataset(val_encodings, val_label, "cola")
-            test_dataset = CustomDataset(test_encodings, test_label, "cola")
-
-            some_new_temp_datasets.append(DatasetDict({
-                'train': train_dataset,
-                'test': test_dataset, 
-                'validation': val_dataset,
-            }))
-
-            print("\n\ntrain ex:", train_dataset.__getitem__(0), "\n")
-            print("\n\nval ex:", val_dataset.__getitem__(0), "\n")
-            print("\n\ntest ex:", test_dataset.__getitem__(0), "\n")
-
-
-            label_count = label_count + 2
-        
-        elif data_args.task_list[index] == 'sst2':
-            train_text, train_label = data_formater.sst2_label_map(task["train"], label_count)
-            test_text, test_label = data_formater.sst2_label_map(task["test"], label_count)
-            val_text, val_label = data_formater.sst2_label_map(task["validation"], label_count)
-
-            train_encodings = tokenizer(train_text, max_length=56, truncation=True, padding='max_length')
-            val_encodings = tokenizer(val_text, max_length=56, truncation=True, padding='max_length')
-            test_encodings = tokenizer(test_text, max_length=56, truncation=True, padding='max_length')
-
-            train_dataset = CustomDataset(train_encodings, train_label, "cola")
-            val_dataset = CustomDataset(val_encodings, val_label, "cola")
-            test_dataset = CustomDataset(test_encodings, test_label, "cola")
-
-            some_new_temp_datasets.append(DatasetDict({
-                'train': train_dataset,
-                'test': test_dataset, 
-                'validation': val_dataset,
-            }))
-
-            print("\n\ntrain ex:", train_dataset.__getitem__(0), "\n")
-            print("\n\nval ex:", val_dataset.__getitem__(0), "\n")
-            print("\n\ntest ex:", test_dataset.__getitem__(0), "\n")
-
-
-            label_count = label_count + 2
-        
     
-  
-    def bubble_sort(input_list):
-   
-        n = len(input_list)
-        # Traverse through all list elements
-        for i in range(len(input_list)):
-            for j in range(0, n - i - 1):
-                if len(input_list[j]) > len(input_list[j + 1]):
-                    input_list[j], input_list[j + 1] = input_list[j + 1], input_list[j]
-        return input_list
-
-
-    def data_shuffle(data_sets):
-        total_len = 0
-        length_arr = []
-        shuffeld_dataset = []
-        data_sets = bubble_sort(data_sets)
-        idx_arr = []
-        for data in data_sets:
-            print("\n\ndata len:",data.__len__(),"\n")
-            length_arr.append(data.__len__())
-            total_len = total_len + data.__len__()
-            idx_arr.append(0)
-
-        for len in length_arr:
-            len = len/total_len
-        
-        for i in range(total_len):
-            num = random.random()
-            for idx, data in enumerate(data_sets):
-                if num <= length_arr[idx] and data.__len__() > idx_arr[idx]:
-                    shuffeld_dataset.append(data.__getitem__(idx_arr[idx]))
-                    idx_arr[idx] = idx_arr[idx] + 1
-                    break
-        return shuffeld_dataset
-
-
-
-        
-    combined_dataset_dict = DatasetDict({
-        'train': data_shuffle([some_new_temp_datasets[0]['train'], some_new_temp_datasets[1]['train']]),
-        'test': data_shuffle([some_new_temp_datasets[0]['test'], some_new_temp_datasets[1]['test']]), 
-        'validation': data_shuffle([some_new_temp_datasets[0]['validation'], some_new_temp_datasets[1]['validation']]),
-    })
-
-    # train_dataset = some_new_temp_datasets[0]['train'] + some_new_temp_datasets[1]['train']
-    # random.shuffle(train_dataset)
-
     
     label_list = []
     if data_args.task_list is not None:
-        is_regression = []
-        num_labels = 0
-        for index, task in enumerate(data_args.task_list):
-            is_regression.append(data_args.task_name == "stsb")
-            if not is_regression[index]:
-                for label in raw_datasets[index]["train"].features["label"].names:
-                    label_list.append(label)
-                    num_labels = num_labels + 1
-            else:
-                raw_datasets[index]["num_labels"] = 1
+        label_list = [0,1]
+        num_labels=2
+        # is_regression = []
+        # num_labels = 0
+        # for index, task in enumerate(data_args.task_list):
+        #     is_regression.append(data_args.task_name == "stsb")
+        #     if not is_regression[index]:
+        #         for label in raw_datasets[index]["train"].features["label"].names:
+        #             label_list.append(label)
+        #             num_labels = num_labels + 1
+        #     else:
+        #         raw_datasets[index]["num_labels"] = 1
        
 
     elif data_args.task_name is not None:
@@ -352,22 +245,22 @@ def main():
             label_list.sort()  # Let's sort it for determinism
             num_labels = len(label_list)
 
-    print("\n\nlabel list: \n", label_list, "\n")
+
     is_regression = False
 
     label_map = {i: label for i, label in enumerate(label_list)}
-
+    label_to_id = {label: i for i, label in enumerate(label_list)}
 
 
 
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
-        num_labels=num_labels,
+        num_labels=2,
         finetuning_task=data_args.task_list,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
-        id2label=label_map,
-        label2id={label: i for i, label in enumerate(label_list)},
+        id2label={1:1, 0:0},
+        # label2id=label_to_id,
         use_auth_token=True if model_args.use_auth_token else None,
     )
 
@@ -380,7 +273,6 @@ def main():
     Model = CoFiBertForSequenceClassification if model_args.model_name_or_path.startswith(
         "bert") else CoFiRobertaForSequenceClassification
 
-    # logger.info("\n\nModel: ", Model, "\n\n")
     
 
     teacher_model = None
@@ -402,7 +294,68 @@ def main():
         use_auth_token=True if model_args.use_auth_token else None,
     ) #! inside the function, we get the original struct  #! CofiBertForSequenceClassification
 
+
+    glue_token_list = {"additional_special_tokens": ["<cola>", "<sst2>"]}
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
+        cache_dir=model_args.cache_dir,
+        use_fast=model_args.use_fast_tokenizer,
+        revision=model_args.model_revision,
+        # additional_special_tokens=["<cola>", "<sst2>"],
+        max_length=56,
+        use_auth_token=True if model_args.use_auth_token else None,
+    )
+
+    # num_added_toks = tokenizer.add_special_tokens(glue_token_list)
+    # print("\n\nWe have added", num_added_toks, "tokens\n\n")
     model.resize_token_embeddings(len(tokenizer))
+
+
+    def create_dataset(task, dataset, label_count):
+            train_text, train_label = data_formater.map_labels(task, dataset["train"], label_count)
+            test_text, test_label = data_formater.map_labels(task, dataset["test"], label_count)
+            val_text, val_label = data_formater.map_labels(task, dataset["validation"], label_count)
+
+            train_encodings = tokenizer(train_text, max_length=56, truncation=True, padding='max_length')
+            val_encodings = tokenizer(val_text, max_length=56, truncation=True, padding='max_length')
+            test_encodings = tokenizer(test_text, max_length=56, truncation=True, padding='max_length')
+
+            train_dataset = CustomDataset(train_encodings, train_label)
+            val_dataset = CustomDataset(val_encodings, val_label)
+            test_dataset = CustomDataset(test_encodings, test_label)
+
+            return (DatasetDict({
+                'train': train_dataset,
+                'test': test_dataset, 
+                'validation': val_dataset,
+            }))
+
+
+    label_count = 0
+
+    some_new_temp_datasets = []
+
+    for (index, dataset) in enumerate(raw_datasets):
+        some_new_temp_datasets.append(create_dataset(data_args.task_list[index], dataset, label_count))
+        # label_count = label_count + glue_tasks_num_labels[data_args.task_list[index]]
+        
+  
+
+
+
+    train_dataset_ = some_new_temp_datasets[0]['train'] + some_new_temp_datasets[1]['train']
+    test_dataset = some_new_temp_datasets[0]['test'] +  some_new_temp_datasets[1]['test']
+    val_dataset = some_new_temp_datasets[0]['validation'] + some_new_temp_datasets[1]['validation']
+        
+    combined_dataset_dict = DatasetDict({
+        'train': train_dataset_,
+        'test': test_dataset, 
+        'validation': val_dataset,
+    })
+
+
+
     # initialize the layer transformation matrix to be an identity matrix
     if additional_args.do_layer_distill:
         initialize_layer_transformation(model)
@@ -505,75 +458,6 @@ def main():
             result["label"] = [(label_to_id[l] if l != -1 else -1) for l in examples["label"]]
         return result
 
-    # if multiple_datasets is True:
-
-    #     train_dataset = []
-    #     eval_dataset = []
-    #     predict_dataset = []
-
-    #     for index, task in enumerate(data_args.task_list):
-    
-    #         print("\n\nraw_datasets at ", index, ":\n", (raw_datasets[index]), "\n\n")
-
-    #         print("also we have sentences: \n", sentences, "\n\n")
-    #         # return
-
-    #         temp_raw_dataset= DatasetDict() 
-    #         # temp_raw_dataset['train'] = (raw_datasets[index])['train']
-    #         # temp_raw_dataset['validation'] = (raw_datasets[index])['validation']
-    #         # temp_raw_dataset['test'] = (raw_datasets[index])['test']
-
-    #         # temp_raw_dataset['num_labels'] = (raw_datasets[index])['num_labels']
-
-    #         for key, dataset in raw_datasets[index].items():
-    #             if key != "num_labels":
-    #                 # Deeply copy each Dataset and assign it to the new DatasetDict
-    #                 temp_raw_dataset[key] = raw_datasets[index][key]
-
-    #         sentence1_key = sentences[index][0]
-    #         sentence2_key = sentences[index][1]
-
-
-
-    #         with training_args.main_process_first(desc="dataset map pre-processing"):
-    #             temp_raw_dataset = temp_raw_dataset.map(
-    #                 preprocess_function,
-    #                 batched=True,
-    #                 load_from_cache_file=not data_args.overwrite_cache,
-    #                 desc="Running tokenizer on dataset",
-    #             ) #! get dataset
-            
-    #         if training_args.do_train:
-    #             if "train" not in raw_datasets[index]:
-    #                 raise ValueError("--do_train requires a train dataset")
-    #             train_dataset.append(raw_datasets[index]["train"])
-    #             if data_args.max_train_samples is not None:
-    #                 train_dataset[index].append(train_dataset[index].select(range(data_args.max_train_samples)))
-
-    #         if training_args.do_eval:
-    #             if "validation" not in raw_datasets[index] and "validation_matched" not in raw_datasets[index]:
-    #                 raise ValueError("--do_eval requires a validation dataset")
-    #             eval_dataset.append(raw_datasets[index]["validation_matched" if data_args.task_list[index] == "mnli" else "validation"])
-    #             if data_args.max_eval_samples is not None:
-    #                 eval_dataset.append(eval_dataset.select(range(data_args.max_eval_samples)))
-
-    #         if training_args.do_predict or data_args.task_list[index] is not None or data_args.test_file is not None:
-    #             if "test" not in raw_datasets[index] and "test_matched" not in raw_datasets[index]:
-    #                 raise ValueError("--do_predict requires a test dataset")
-    #             predict_dataset.append(raw_datasets[index]["test_matched" if data_args.task_list[index] == "mnli" else "test"])
-    #             if data_args.max_predict_samples is not None:
-    #                 predict_dataset.append(predict_dataset.select(range(data_args.max_predict_samples)))
-
-    #         # Log a few random samples from the training set:
-    #         if training_args.do_train:
-    #             for i in random.sample(range(len(train_dataset[index])), 3):
-    #                 logger.info(f"Sample {i} of the training set: {train_dataset[index][i]}.")
-
-    #         # Get the metric function
-    #         if data_args.task_name is not None:
-    #             metric = load_metric("glue", data_args.task_name)
-    #         else:
-    #             metric = load_metric("accuracy")
 
     if multiple_datasets is not True:
         with training_args.main_process_first(desc="dataset map pre-processing"):
@@ -644,6 +528,11 @@ def main():
     eval_dataset = combined_dataset_dict["validation"]
 
     logger.info(
+        f"************* EXPECT {len(some_new_temp_datasets[0]['train']) + len(some_new_temp_datasets[1]['train'])} Training Examples Loaded *************")
+    logger.info(
+        f"************* {len(some_new_temp_datasets[0]['validation']) + len(some_new_temp_datasets[1]['validation'])} Evaluation Examples Loaded *************")
+
+    logger.info(
         f"************* {len(train_dataset)} Training Examples Loaded *************")
     logger.info(
         f"************* {len(eval_dataset)} Evaluation Examples Loaded *************")
@@ -665,7 +554,7 @@ def main():
     )
 
 
-    # change epoch loop to here. we can set up everythin in new function, and each iteration call the single epoch function with each dataset
+
     if training_args.do_train:
         trainer.train()
         trainer.save_model()

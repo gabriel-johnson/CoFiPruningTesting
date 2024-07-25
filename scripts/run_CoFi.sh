@@ -55,13 +55,13 @@ layer_distill_version=${9}
 scheduler_type=linear
 
 
-if [[ " ${glue_low[*]} " =~ ${task_name} ]]; then
-    eval_steps=50
-    epochs=100
-    start_saving_best_epochs=50
-    prepruning_finetune_epochs=4
-    lagrangian_warmup_epochs=20
-fi
+# if [[ " ${glue_low[*]} " =~ ${task_name} ]]; then
+#     eval_steps=50
+#     epochs=100
+#     start_saving_best_epochs=50
+#     prepruning_finetune_epochs=4
+#     lagrangian_warmup_epochs=20
+# fi
 
 if [[ " ${glue_high[*]} " =~ ${task_name} ]]; then
     eval_steps=500
