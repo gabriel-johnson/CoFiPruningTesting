@@ -275,27 +275,12 @@ def main():
 
     
 
-    teacher_model = None
-    if additional_args.do_distill:
-        teacher_model = Model.from_pretrained(
-            additional_args.distillation_path,
-            config=deepcopy(config)
-        )
-        teacher_model.eval() #! inside has a cofibertmodel #! CofiBertForSequenceClassification
+   
 
     config.do_layer_distill = additional_args.do_layer_distill #! True
 
-    model = Model.from_pretrained(
-        model_args.model_name_or_path,
-        from_tf=bool(".ckpt" in model_args.model_name_or_path),
-        config=config,
-        cache_dir=model_args.cache_dir,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-    ) #! inside the function, we get the original struct  #! CofiBertForSequenceClassification
-
-
     glue_token_list = {"additional_special_tokens": ["<cola>", "<sst2>"]}
+
 
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
@@ -307,10 +292,31 @@ def main():
         use_auth_token=True if model_args.use_auth_token else None,
     )
 
-    # num_added_toks = tokenizer.add_special_tokens(glue_token_list)
-    # print("\n\nWe have added", num_added_toks, "tokens\n\n")
-    model.resize_token_embeddings(len(tokenizer))
+    tokenizer.add_special_tokens(glue_token_list)
 
+    teacher_model = None
+    if additional_args.do_distill:
+        teacher_model = Model.from_pretrained(
+            additional_args.distillation_path,
+            config=deepcopy(config)
+        )
+        teacher_model.resize_token_embeddings(len(tokenizer))
+
+        teacher_model.eval() #! inside has a cofibertmodel #! CofiBertForSequenceClassification
+
+
+    model = Model.from_pretrained(
+        model_args.model_name_or_path,
+        tokenizer,
+        from_tf=bool(".ckpt" in model_args.model_name_or_path),
+        config=config,
+        cache_dir=model_args.cache_dir,
+        revision=model_args.model_revision,
+        use_auth_token=True if model_args.use_auth_token else None,
+        
+    ) #! inside the function, we get the original struct  #! CofiBertForSequenceClassification
+
+    model.resize_token_embeddings(len(tokenizer))
 
     def create_dataset(task, dataset, label_count):
             train_text, train_label = data_formater.map_labels(task, dataset["train"], label_count)
@@ -346,7 +352,13 @@ def main():
 
     train_dataset_ = some_new_temp_datasets[0]['train'] + some_new_temp_datasets[1]['train']
     test_dataset = some_new_temp_datasets[0]['test'] +  some_new_temp_datasets[1]['test']
-    val_dataset = some_new_temp_datasets[0]['validation'] + some_new_temp_datasets[1]['validation']
+
+    # label_to_id = {label: i for i, label in enumerate(label_list)}
+
+    val_dataset = {task: some_new_temp_datasets[i]['validation'] for i, task in enumerate(data_args.task_list)}
+
+    
+    
         
     combined_dataset_dict = DatasetDict({
         'train': train_dataset_,
@@ -527,10 +539,7 @@ def main():
     train_dataset = combined_dataset_dict["train"]
     eval_dataset = combined_dataset_dict["validation"]
 
-    logger.info(
-        f"************* EXPECT {len(some_new_temp_datasets[0]['train']) + len(some_new_temp_datasets[1]['train'])} Training Examples Loaded *************")
-    logger.info(
-        f"************* {len(some_new_temp_datasets[0]['validation']) + len(some_new_temp_datasets[1]['validation'])} Evaluation Examples Loaded *************")
+   
 
     logger.info(
         f"************* {len(train_dataset)} Training Examples Loaded *************")

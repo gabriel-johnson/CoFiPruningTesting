@@ -257,8 +257,11 @@ class CoFiTrainer(Trainer):
         train_pbar = trange(epochs_trained, int(
             np.ceil(num_train_epochs)), desc="Epoch", disable=disable_tqdm)
 
-        self.evaluate()
+        if(isinstance(self.model.config.finetuning_task, list)):
+            self.evaluate_multiple()
 
+        else:
+            self.evaluate()
         # training
         for epoch in range(epochs_trained, int(np.ceil(num_train_epochs))): #! 20 epoch
             epoch_start = time.time()
@@ -362,7 +365,11 @@ class CoFiTrainer(Trainer):
                         self.log(logs)
 
                     if self.global_step % self.args.eval_steps == 0:
-                        self.evaluate()
+                        if(isinstance(self.model.config.finetuning_task, list)):
+                            self.evaluate_multiple()
+
+                        else:
+                            self.evaluate()
 
                 epoch_pbar.update(1)
 
@@ -506,17 +513,21 @@ class CoFiTrainer(Trainer):
 
         return PredictionOutput(predictions=all_preds, label_ids=all_labels, metrics=metrics)
 
+    def evaluate_multiple(self, eval_dataset: Optional[Dataset] = None) -> Tuple[Dict[str, float], List]:
+        task_list = self.model.config.finetuning_task
+        eval_dataset = self.eval_dataset
+        for task in task_list:
+            self.model.config.finetuning_task = task
+            self.eval_dataset = eval_dataset[task]
+            self.evaluate()
+
+        self.model.config.finetuning_task = task_list
+        self.eval_dataset = eval_dataset
+            
     def evaluate(self, eval_dataset: Optional[Dataset] = None) -> Tuple[Dict[str, float], List]:
         # eval_sampler = self._get_eval_sampler(eval_dataset)
+        eval_dataloader = self.get_eval_dataloader(eval_dataset)
 
-        eval_dataloader = DataLoader(
-            self.eval_dataset,
-            # sampler=eval_sampler,
-            batch_size=self.args.eval_batch_size,
-            collate_fn=self.data_collator,
-            drop_last=self.args.dataloader_drop_last,
-            shuffle=True
-        )
 
         output = self.prediction_loop(
             eval_dataloader, description="Evaluation")
@@ -529,13 +540,7 @@ class CoFiTrainer(Trainer):
 
         eval_score = 0
 
-        if(isinstance(self.model.config.finetuning_task, list)):
-            name = []
-            for task in self.model.config.finetuning_task:
-                name.append(glue_tasks[task])
-
-        else:
-            name = glue_tasks[self.model.config.finetuning_task]
+        name = glue_tasks[self.model.config.finetuning_task]
         if isinstance(name, str):
             if name in output.metrics:
                 eval_score = output.metrics[name]
@@ -543,7 +548,7 @@ class CoFiTrainer(Trainer):
             for na in name:
                 if na in output.metrics:
                     eval_score = output.metrics[na]
-                    # break
+                    break
 
         # logger.info(f"starting saving best: {self.global_step} {self.start_saving_best}")
 

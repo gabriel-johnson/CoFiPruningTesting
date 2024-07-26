@@ -588,7 +588,7 @@ class CoFiBertForQuestionAnswering(BertForQuestionAnswering):
             self.layer_transformation = None
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path: Optional[Union[str, os.PathLike]], *model_args, **kwargs):
+    def from_pretrained(cls, pretrained_model_name_or_path: Optional[Union[str, os.PathLike]], tokenizer, *model_args, **kwargs):
         if os.path.exists(pretrained_model_name_or_path):
             weights = torch.load(os.path.join(pretrained_model_name_or_path, "pytorch_model.bin"), map_location=torch.device("cpu"))
         else:
@@ -620,7 +620,11 @@ class CoFiBertForQuestionAnswering(BertForQuestionAnswering):
         config.do_layer_distill = False
         model = cls(config)
 
+
+
         load_pruned_model(model, weights)
+
+
         return model
         
     def forward(
