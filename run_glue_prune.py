@@ -213,16 +213,16 @@ def main():
     if data_args.task_list is not None:
         label_list = [0,1]
         num_labels=2
-        # is_regression = []
-        # num_labels = 0
-        # for index, task in enumerate(data_args.task_list):
-        #     is_regression.append(data_args.task_name == "stsb")
-        #     if not is_regression[index]:
-        #         for label in raw_datasets[index]["train"].features["label"].names:
-        #             label_list.append(label)
-        #             num_labels = num_labels + 1
-        #     else:
-        #         raw_datasets[index]["num_labels"] = 1
+        is_regression = []
+        num_labels = 0
+        for index, task in enumerate(data_args.task_list):
+            is_regression.append(data_args.task_name == "stsb")
+            if not is_regression[index]:
+                for label in raw_datasets[index]["train"].features["label"].names:
+                    label_list.append(label)
+                    num_labels = num_labels + 1
+            else:
+                raw_datasets[index]["num_labels"] = 1
        
 
     elif data_args.task_name is not None:
@@ -251,16 +251,14 @@ def main():
     label_map = {i: label for i, label in enumerate(label_list)}
     label_to_id = {label: i for i, label in enumerate(label_list)}
 
-
-
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
         num_labels=2,
         finetuning_task=data_args.task_list,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
-        id2label={1:1, 0:0},
-        # label2id=label_to_id,
+        id2label=label_map,
+        label2id=label_to_id,
         use_auth_token=True if model_args.use_auth_token else None,
     )
 
