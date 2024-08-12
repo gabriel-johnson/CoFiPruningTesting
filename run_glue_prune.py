@@ -235,7 +235,7 @@ def main():
     def create_dataset(task, dataset, label_count):
             train_text, train_label = data_formater.map_labels(task, dataset["train"], label_count)
             test_text, test_label = data_formater.map_labels(task, dataset["test"], label_count)
-            val_text, val_label = data_formater.map_labels(task, dataset["validation"], label_count)
+            val_text, val_label = data_formater.map_labels(task, dataset["validation"],label_count )
 
             train_encodings = tokenizer(train_text, max_length=56, truncation=True, padding='max_length')
             val_encodings = tokenizer(val_text, max_length=56, truncation=True, padding='max_length')
