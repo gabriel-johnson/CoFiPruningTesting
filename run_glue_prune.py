@@ -67,15 +67,6 @@ class CustomDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.labels)
 
-class ConcatDataset(CustomDataset):
-    def __init__(self, *datasets):
-        self.datasets = datasets
-
-    def __getitem__(self, i):
-        return tuple(d[i] for d in self.datasets)
-
-    def __len__(self):
-        return min(len(d) for d in self.datasets)
 
 def main():
     parser = HfArgumentParser(
@@ -127,13 +118,7 @@ def main():
     log_all_parameters(logger, model_args, data_args,
                        training_args, additional_args)
 
-    
-    t_name = None
-
-
     multiple_datasets = False
-
-
 
     def load_data():
         if data_args.task_name is not None:
@@ -207,14 +192,8 @@ def main():
         data_args.task_list = None
 
 
-
-
     Model = CoFiBertForSequenceClassification if model_args.model_name_or_path.startswith(
         "bert") else CoFiRobertaForSequenceClassification
-
-    
-
-   
 
 
     glue_token_list = {"additional_special_tokens": ["<cola>", "<sst2>"]}
@@ -225,7 +204,6 @@ def main():
         cache_dir=model_args.cache_dir,
         use_fast=model_args.use_fast_tokenizer,
         revision=model_args.model_revision,
-        # additional_special_tokens=["<cola>", "<sst2>"],
         max_length=56,
         use_auth_token=True if model_args.use_auth_token else None,
     )
@@ -254,15 +232,11 @@ def main():
 
     label_count = 0
 
-    some_new_temp_datasets = []
-    print("\n\n\n\nhere is a raw dataset example:\n", raw_datasets[0]['train'][0], "\n\n")
-    print("\n\n\n\nhere is a raw dataset example:\n", raw_datasets[0]['train'][1], "\n\n")
-
-    
+    tokinzed_dataset = []    
 
     for (index, dataset) in enumerate(raw_datasets):
-        some_new_temp_datasets.append(create_dataset(data_args.task_list[index], dataset, label_count))
-        label_count = label_count + glue_tasks_num_labels[data_args.task_list[index]]
+        tokinzed_dataset.append(create_dataset(data_args.task_list[index], dataset, label_count))
+        # label_count = label_count + glue_tasks_num_labels[data_args.task_list[index]]
         
   
     label_list = []
@@ -313,12 +287,12 @@ def main():
 
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
-        num_labels=num_labels,
+        num_labels=2,
         finetuning_task=data_args.task_list,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
-        id2label=label_map,
-        label2id=label_to_id,
+        id2label={1:1, 0:0},
+        # label2id=label_to_id,
         use_auth_token=True if model_args.use_auth_token else None,
     )
 
@@ -329,14 +303,9 @@ def main():
         config.output_hidden_states = True
 
 
-    train_dataset_ = some_new_temp_datasets[0]['train'] + some_new_temp_datasets[1]['train']
-    test_dataset = some_new_temp_datasets[0]['test'] +  some_new_temp_datasets[1]['test']
-
-    # label_to_id = {label: i for i, label in enumerate(label_list)}
-
-    val_dataset = {task: some_new_temp_datasets[i]['validation'] for i, task in enumerate(data_args.task_list)}
-
-    
+    train_dataset_ = tokinzed_dataset[0]['train'] + tokinzed_dataset[1]['train']
+    test_dataset = tokinzed_dataset[0]['test'] +  tokinzed_dataset[1]['test']
+    val_dataset = {task: tokinzed_dataset[i]['validation'] for i, task in enumerate(data_args.task_list)}    
     
         
     combined_dataset_dict = DatasetDict({
@@ -519,10 +488,16 @@ def main():
 
     # You can define your custom compute_metrics function. It takes an `EvalPrediction` object (a namedtuple with a
     # predictions and label_ids field) and has to return a dictionary string to float.
-    def compute_metrics(p: EvalPrediction):
+    def compute_metrics(task, p: EvalPrediction):
         preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
         preds = np.squeeze(preds) if is_regression else np.argmax(preds, axis=1)
         if data_args.task_name is not None:
+            result = metric.compute(predictions=preds, references=p.label_ids)
+            if len(result) > 1:
+                result["combined_score"] = np.mean(list(result.values())).item()
+            return result
+        elif data_args.task_list is not None:
+            metric = load_metric("glue", task)
             result = metric.compute(predictions=preds, references=p.label_ids)
             if len(result) > 1:
                 result["combined_score"] = np.mean(list(result.values())).item()

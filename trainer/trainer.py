@@ -487,7 +487,7 @@ class CoFiTrainer(Trainer):
                 all_labels, labels, padding_index=-100)
 
         if self.compute_metrics is not None and all_preds is not None and all_labels is not None:
-            metrics = self.compute_metrics(EvalPrediction(
+            metrics = self.compute_metrics(self.model.config.finetuning_task, EvalPrediction(
                 predictions=all_preds, label_ids=all_labels))
         else:
             metrics = {}
@@ -516,13 +516,18 @@ class CoFiTrainer(Trainer):
     def evaluate_multiple(self, eval_dataset: Optional[Dataset] = None) -> Tuple[Dict[str, float], List]:
         task_list = self.model.config.finetuning_task
         eval_dataset = self.eval_dataset
+        loss = 0
         for task in task_list:
             self.model.config.finetuning_task = task
             self.eval_dataset = eval_dataset[task]
-            self.evaluate()
+            metrics = self.evaluate()
+            loss += metrics["eval_loss"]
+
 
         self.model.config.finetuning_task = task_list
         self.eval_dataset = eval_dataset
+
+        logger.info("***** Combined Loss: %f *****", loss)
             
     def evaluate(self, eval_dataset: Optional[Dataset] = None) -> Tuple[Dict[str, float], List]:
         # eval_sampler = self._get_eval_sampler(eval_dataset)
