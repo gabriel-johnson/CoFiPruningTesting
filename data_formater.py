@@ -23,10 +23,19 @@ def sst2_label_map(dataset, label_count):
     return texts, labels
 
 def map_labels(task, dataset, label_count):
-    if task == "cola":
-        return cola_label_map(dataset, label_count)
+    # if task == "cola":
+    #     return cola_label_map(dataset, label_count)
     
-    elif task == "sst2":
-        return sst2_label_map(dataset, label_count)
+    # elif task == "sst2":
+
+    #     return sst2_label_map(dataset, label_count)
+    def append_token(example):
+        example['sentence'] = "<" + task + ">" + example["sentence"]
+        return example
+
+    # Apply the function to the dataset using map
+
+    return dataset.map(append_token)
+
     
     
