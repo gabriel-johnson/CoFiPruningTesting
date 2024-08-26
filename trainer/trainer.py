@@ -178,7 +178,16 @@ class CoFiTrainer(Trainer):
             raise ValueError("Trainer: training requires a train_dataset.")
         # train_sampler = self._get_train_sampler()
         train_dataloader = DataLoader(
-                                    self.train_dataset,
+                                    self.train_dataset[0],
+                                    batch_size=self.args.eval_batch_size,
+                                    shuffle=True,
+                                    # sampler=train_sampler,
+                                    collate_fn=self.data_collator,
+                                    drop_last=self.args.dataloader_drop_last,
+                                    )
+        
+        train_dataloaderB = DataLoader(
+                                    self.train_dataset[1],
                                     batch_size=self.args.eval_batch_size,
                                     shuffle=True,
                                     # sampler=train_sampler,
@@ -279,7 +288,19 @@ class CoFiTrainer(Trainer):
                               disable=disable_tqdm)
             self.eval_counter.clear()
 
-            for step, inputs in enumerate(epoch_iterator):
+            step = 0
+
+            task = None
+
+            while True:
+
+                if(step == 0 or step % 2 == 0):
+                    inputs = next(iter(train_dataloader))
+                    task = "taskA"
+                else:
+                    inputs = next(iter(train_dataloaderB))
+                    task = "taskB"
+
                 if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps: #! before pruning, run 12272 steps
                     self.start_prune = True
 
@@ -295,7 +316,7 @@ class CoFiTrainer(Trainer):
                     zs = self.l0_module.forward(training=True) #! get the zs
                     self.fill_inputs_with_zs(zs, inputs) #! use the zs
 
-                loss_terms = self.training_step(model, inputs)
+                loss_terms = self.training_step(model, inputs, task)
                 tr_loss_step = loss_terms["loss"]
                 lag_loss_step = loss_terms["lagrangian_loss"]
 
@@ -375,6 +396,7 @@ class CoFiTrainer(Trainer):
 
                 if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
                     break
+                step += 1
 
             epoch_end = time.time()
             # wandb.log({'epoch':epoch})
@@ -701,7 +723,9 @@ class CoFiTrainer(Trainer):
             inputs["token_type_ids"] = inputs["token_type_ids"][:, :max_length]
 
 
-    def training_step(self, model: torch.nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]]) -> List[torch.Tensor]:
+    def training_step(self, model: torch.nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]], task) -> List[torch.Tensor]:
+
+
         model.train()
         if self.l0_module is not None:
             self.l0_module.train()
@@ -719,7 +743,7 @@ class CoFiTrainer(Trainer):
                 self.shortens_inputs(teacher_inputs)
                 teacher_outputs = self.teacher_model(**teacher_inputs)
             self.shortens_inputs(inputs)
-            student_outputs = model(**inputs) #! get the two outputs
+            student_outputs = model(**inputs, task=task) #! get the two outputs
 
             zs = {key: inputs[key] for key in inputs if "_z" in key} #! extract the zs
             distill_loss, distill_ce_loss, loss = self.calculate_distillation_loss(

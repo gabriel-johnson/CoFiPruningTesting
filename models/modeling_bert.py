@@ -48,6 +48,9 @@ class CoFiBertForSequenceClassification(BertForSequenceClassification):
 
         self.do_layer_distill = getattr(config, "do_layer_distill", False)
 
+        self.classifier_task1 = nn.Linear(config.hidden_size, 2)
+        self.classifier_task2 = nn.Linear(config.hidden_size, 2)
+
         if self.do_layer_distill:
             self.layer_transformation = nn.Linear(
                 config.hidden_size, config.hidden_size)
@@ -106,6 +109,7 @@ class CoFiBertForSequenceClassification(BertForSequenceClassification):
             intermediate_z=None,
             mlp_z=None,
             hidden_z=None,
+            task=None,
     ):
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
@@ -129,7 +133,14 @@ class CoFiBertForSequenceClassification(BertForSequenceClassification):
         pooled_output = outputs[1]
 
         pooled_output = self.dropout(pooled_output)
-        logits = self.classifier(pooled_output) #! [32, 3]
+        # logits_task1, logits_task2 = None, None
+
+        if task == "taskA":
+            logits = self.classifier_task1(pooled_output)
+        
+        else:
+            logits = self.classifier_task2(pooled_output)
+
 
         loss = None
         if labels is not None:
@@ -141,6 +152,7 @@ class CoFiBertForSequenceClassification(BertForSequenceClassification):
                 loss_fct = CrossEntropyLoss()
                 loss = loss_fct(
                     logits.view(-1, self.num_labels), labels.view(-1))
+                
 
         if not return_dict:
             output = (logits,) + outputs[2:]

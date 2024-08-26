@@ -576,11 +576,13 @@ def main():
 
 # Apply the new feature schema to both datasets
     
+    train_dataset_arr[0] = train_dataset_arr[0].remove_columns("idx")
+    train_dataset_arr[1] = train_dataset_arr[1].remove_columns("idx")
 
-    train_dataset =  concatenate_datasets([train_dataset_arr[0], train_dataset_arr[1]]) #train_dataset_arr[0] + train_dataset_arr[1]
+    train_dataset = train_dataset_arr #concatenate_datasets([train_dataset_arr[0], train_dataset_arr[1]]) #train_dataset_arr[0] + train_dataset_arr[1]
     eval_dataset = combined_eval_dataset
 
-    train_dataset = train_dataset.remove_columns("idx")
+    # train_dataset = train_dataset.remove_columns("idx")
     # eval_dataset["cola"] = eval_dataset["cola"].remove_columns("idx")
 
 
