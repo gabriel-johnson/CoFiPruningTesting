@@ -6,7 +6,7 @@ module load cuda/12.1
 
 
 TASK=[CoLA,SST2]
-SUFFIX=sparsity0.60
+SUFFIX=multiple_outputs0.60
 EX_CATE=CoFi
 PRUNING_TYPE=structured_heads+structured_mlp+hidden+layer
 SPARSITY=0.60
