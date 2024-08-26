@@ -292,7 +292,7 @@ class CoFiTrainer(Trainer):
 
             task = None
 
-            while True:
+            while step < len(train_dataloader) + len(train_dataloaderB):
 
                 if(step == 0 or step % 2 == 0):
                     inputs = next(iter(train_dataloader))
