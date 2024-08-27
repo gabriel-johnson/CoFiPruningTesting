@@ -396,8 +396,8 @@ class CoFiTrainer(Trainer):
 
                 epoch_pbar.update(1)
 
-                if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
-                    break
+                # if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
+                #     break
                 step += 1
 
             epoch_end = time.time()
@@ -408,8 +408,8 @@ class CoFiTrainer(Trainer):
             epoch_pbar.close()
             train_pbar.update(1)
 
-            if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
-                break
+            # if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
+            #     break
 
         train_pbar.close()
 
