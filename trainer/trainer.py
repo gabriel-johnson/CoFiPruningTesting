@@ -296,9 +296,11 @@ class CoFiTrainer(Trainer):
 
                 if(step == 0 or step % 2 == 0):
                     inputs = next(iter(train_dataloader))
+                    epoch_iterator = train_dataloader
                     task = "taskA"
                 else:
                     inputs = next(iter(train_dataloaderB))
+                    epoch_iterator = train_dataloaderB
                     task = "taskB"
 
                 if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps: #! before pruning, run 12272 steps
