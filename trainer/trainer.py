@@ -302,6 +302,47 @@ class CoFiTrainer(Trainer):
                     inputs = next(iter(train_dataloaderB))
                     epoch_iterator = train_dataloaderB
                     task = "taskB"
+                
+                if task == "taskA" and epoch % 2 != 0:
+                    loss_terms = self.training_step(model, inputs, task)
+                    tr_loss_step = loss_terms["loss"]
+                    lag_loss_step = loss_terms["lagrangian_loss"]
+
+                    tr_loss += tr_loss_step
+                    lag_loss += lag_loss_step if lag_loss_step is not None else 0.0
+
+                    if self.global_step % self.args.eval_steps == 0:
+                        if(isinstance(self.model.config.finetuning_task, list)):
+                            self.evaluate_multiple()
+
+                        else:
+                            self.evaluate()
+                    
+                    step += 1
+                    continue
+
+                elif task == "taskB" and epoch % 2 == 0:
+                    loss_terms = self.training_step(model, inputs, task)
+                    tr_loss_step = loss_terms["loss"]
+                    lag_loss_step = loss_terms["lagrangian_loss"]
+
+                    tr_loss += tr_loss_step
+                    lag_loss += lag_loss_step if lag_loss_step is not None else 0.0
+
+                    if self.global_step % self.args.eval_steps == 0:
+                        if(isinstance(self.model.config.finetuning_task, list)):
+                            self.evaluate_multiple()
+
+                        else:
+                            self.evaluate()
+                    
+                    step += 1
+                    continue
+
+
+
+
+                self.total_flos += self.floating_point_ops(inputs)
 
                 if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps: #! before pruning, run 12272 steps
                     self.start_prune = True
@@ -395,6 +436,7 @@ class CoFiTrainer(Trainer):
                             self.evaluate()
 
                 epoch_pbar.update(1)
+
 
                 # if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
                 #     break
