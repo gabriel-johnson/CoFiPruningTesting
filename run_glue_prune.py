@@ -516,17 +516,25 @@ def main():
             
         combined_eval_dataset = {task: eval_dataset_arr[i] for i, task in enumerate(data_args.task_list)}
 
-        train_dataset = interleave_datasets([train_dataset_arr[0], train_dataset_arr[1]]) #train_dataset_arr[0] + train_dataset_arr[1]
+        train_dataset = interleave_datasets([train_dataset_arr[0], train_dataset_arr[1]], stopping_strategy="all_exhausted") #train_dataset_arr[0] + train_dataset_arr[1]
 
-        eval_dataset = interleave_datasets([eval_dataset_arr[0], eval_dataset_arr[1]])
+        eval_dataset = interleave_datasets([eval_dataset_arr[0], eval_dataset_arr[1]], stopping_strategy="all_exhausted")
 
 
     # You can define your custom compute_metrics function. It takes an `EvalPrediction` object (a namedtuple with a
     # predictions and label_ids field) and has to return a dictionary string to float.
-    def compute_metrics(task, p: EvalPrediction):
+
+
+
+    def compute_metrics(p: EvalPrediction):
         preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
         preds = np.squeeze(preds) if is_regression else np.argmax(preds, axis=1)
-        # if task is None:
+        metric = load_metric("accuracy")
+        result = metric.compute(predictions=preds, references=p.label_ids)
+        if len(result) > 1:
+            result["combined_score"] = np.mean(list(result.values())).item()
+        return result
+    
         return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
         if data_args.task_name is not None:
             metric = load_metric("glue", data_args.task_name)

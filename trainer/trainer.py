@@ -95,8 +95,6 @@ class CoFiTrainer(Trainer):
 
         self.additional_args = additional_args
 
-        self.tokenizer = tokenizer
-
         self.l0_module = l0_module
         self.prepruning_finetune_steps = 100
         self.start_prune = False
@@ -176,17 +174,7 @@ class CoFiTrainer(Trainer):
                 self.lr_scheduler = None
 
     def train(self):
-        if self.train_dataset is None:
-            raise ValueError("Trainer: training requires a train_dataset.")
-
-        print("\n\ntrain_datset in trainer at 0", self.train_dataset[0], "\n\n")
-
         train_dataloader = self.get_train_dataloader()
-
-        print("\n\ntrain_dataloader: ", next(iter(train_dataloader)), "\n\n")
-
-        # return
-
         num_update_steps_per_epoch = len(
             train_dataloader) // self.args.gradient_accumulation_steps
         num_update_steps_per_epoch = max(num_update_steps_per_epoch, 1) #! 12272
@@ -259,11 +247,8 @@ class CoFiTrainer(Trainer):
         train_pbar = trange(epochs_trained, int(
             np.ceil(num_train_epochs)), desc="Epoch", disable=disable_tqdm)
 
-        if(isinstance(self.model.config.finetuning_task, list)):
-            self.evaluate_multiple()
+        self.evaluate()
 
-        else:
-            self.evaluate()
         # training
         for epoch in range(epochs_trained, int(np.ceil(num_train_epochs))): #! 20 epoch
             epoch_start = time.time()
@@ -367,11 +352,7 @@ class CoFiTrainer(Trainer):
                         self.log(logs)
 
                     if self.global_step % self.args.eval_steps == 0:
-                        if(isinstance(self.model.config.finetuning_task, list)):
-                            self.evaluate_multiple()
-
-                        else:
-                            self.evaluate()
+                        self.evaluate()
 
                 epoch_pbar.update(1)
 
@@ -489,7 +470,7 @@ class CoFiTrainer(Trainer):
                 all_labels, labels, padding_index=-100)
 
         if self.compute_metrics is not None and all_preds is not None and all_labels is not None:
-            metrics = self.compute_metrics(self.model.config.finetuning_task, EvalPrediction(
+            metrics = self.compute_metrics(EvalPrediction(
                 predictions=all_preds, label_ids=all_labels))
         else:
             metrics = {}
@@ -515,30 +496,8 @@ class CoFiTrainer(Trainer):
 
         return PredictionOutput(predictions=all_preds, label_ids=all_labels, metrics=metrics)
 
-    def evaluate_multiple(self, eval_dataset: Optional[Dataset] = None) -> Tuple[Dict[str, float], List]:
-        # task_list = self.model.config.finetuning_task
-        # eval_dataset = self.eval_dataset
-        # loss = 0
-        # for task in task_list:
-        #     self.model.config.finetuning_task = task
-        #     self.eval_dataset = eval_dataset[task]
-        #     metrics = self.evaluate()
-        #     loss += metrics["eval_loss"]
-
-
-        # self.model.config.finetuning_task = task_list
-        # self.eval_dataset = eval_dataset
-
-        # logger.info("***** Combined Loss: %f *****", loss)
-
-        self.model.config.finetuning_task = None
-        return self.evaluate()
-            
     def evaluate(self, eval_dataset: Optional[Dataset] = None) -> Tuple[Dict[str, float], List]:
-        # eval_sampler = self._get_eval_sampler(eval_dataset)
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
-
-
         output = self.prediction_loop(
             eval_dataloader, description="Evaluation")
 
@@ -725,7 +684,6 @@ class CoFiTrainer(Trainer):
                 self.shortens_inputs(teacher_inputs)
                 teacher_outputs = self.teacher_model(**teacher_inputs)
             self.shortens_inputs(inputs)
-            
             student_outputs = model(**inputs) #! get the two outputs
 
             zs = {key: inputs[key] for key in inputs if "_z" in key} #! extract the zs
