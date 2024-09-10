@@ -9,7 +9,7 @@ import datasets
 import numpy as np
 import torch
 import transformers
-from datasets import load_dataset, load_metric, DatasetDict, concatenate_datasets, Features, Value, Sequence, ClassLabel
+from datasets import load_dataset, load_metric, DatasetDict, interleave_datasets, Features, Value, Sequence, ClassLabel
 from transformers import AutoConfig, AutoTokenizer, EvalPrediction, default_data_collator, DataCollatorWithPadding
 from transformers import (HfArgumentParser, TrainingArguments, PretrainedConfig,
                           glue_output_modes, set_seed)
@@ -123,7 +123,8 @@ def main():
     def load_data():
         if data_args.task_name is not None:
             # Downloading and loading a dataset from the hub.
-            raw_datasets = load_dataset("glue", data_args.task_name)
+            raw_datasets = load_dataset(
+                "./glue.py", data_args.task_name.replace("-", ""), cache_dir=model_args.cache_dir)
             t_name = data_args.task_name
         elif data_args.dataset_name is not None:
             # Downloading and loading a dataset from the hub.
@@ -184,6 +185,7 @@ def main():
             data_args.task_name = task
             raw_datasets.append(load_data())
         data_args.task_name = None
+        t_name = None
 
     
     else:
@@ -209,20 +211,16 @@ def main():
 
     tokenizer.add_special_tokens(glue_token_list)
 
+
     def create_dataset(task, dataset, label_count):
             train_dataset = data_formater.map_labels(task, dataset["train"], label_count)
+
             test_dataset = data_formater.map_labels(task, dataset["test"], label_count)
+            print("\n\neval_dataset before map labels: ", dataset["train"][500], "\n\n")
+
             val_dataset = data_formater.map_labels(task, dataset["validation"],label_count )
+            print("\n\ntrain_dataset after map labels: ", train_dataset[500], "\n\n")
 
-            # for data in val
-
-            # train_encodings = tokenizer(train_text, max_length=56, truncation=True, padding='max_length')
-            # val_encodings = tokenizer(val_text, max_length=56, truncation=True, padding='max_length')
-            # test_encodings = tokenizer(test_text, max_length=56, truncation=True, padding='max_length')
-
-            # train_dataset = CustomDataset(train_encodings, train_label)
-            # val_dataset = CustomDataset(val_encodings, val_label)
-            # test_dataset = CustomDataset(test_encodings, test_label)
 
             return (DatasetDict({
                 'train': train_dataset,
@@ -232,14 +230,16 @@ def main():
 
     label_count = 0
 
-    combined_raw_datasets = []    
-
-    for (index, dataset) in enumerate(raw_datasets):
-        combined_raw_datasets.append(create_dataset(data_args.task_list[index], dataset, label_count))
-        # label_count = label_count + glue_tasks_num_labels[data_args.task_list[index]]
-    label_list = []
+   
 
     if data_args.task_list is not None:
+        combined_raw_datasets = []    
+
+        for (index, dataset) in enumerate(raw_datasets):
+            combined_raw_datasets.append(create_dataset(data_args.task_list[index], dataset, label_count))
+            # label_count = label_count + glue_tasks_num_labels[data_args.task_list[index]]
+        label_list = []
+    
         is_regression = []
         num_labels = 0
         for index, task in enumerate(data_args.task_list):
@@ -272,7 +272,6 @@ def main():
             label_list.sort()  # Let's sort it for determinism
             num_labels = len(label_list)
 
-
     is_regression = False
 
     label_list = ["negative", "positive"]
@@ -281,14 +280,12 @@ def main():
     label_map = {i: label for i, label in enumerate(label_list)}
     label_to_id = {label: i for i, label in enumerate(label_list)}
 
-    # print("\n\n\nlabelmap:\n", label_map)
-    # print("\n\n\nlabel to id :\n", label_to_id, "\n")
 
 
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
         num_labels=num_labels,
-        finetuning_task=data_args.task_list,
+        finetuning_task=data_args.task_name if data_args.task_name is not None else data_args.task_list,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         id2label=label_map,
@@ -301,18 +298,6 @@ def main():
     if additional_args.do_distill:
         config.output_attentions = True
         config.output_hidden_states = True
-
-
-    # train_dataset_ = tokinzed_dataset[0]['train'] + tokinzed_dataset[1]['train']
-    # test_dataset = tokinzed_dataset[0]['test'] +  tokinzed_dataset[1]['test']
-    # val_dataset = {task: tokinzed_dataset[i]['validation'] for i, task in enumerate(data_args.task_list)}    
-    
-        
-    # combined_dataset_dict = DatasetDict({
-    #     'train': train_dataset_,
-    #     'test': test_dataset, 
-    #     'validation': val_dataset,
-    # })
 
     teacher_model = None
     if additional_args.do_distill:
@@ -337,9 +322,6 @@ def main():
     ) #! inside the function, we get the original struct  #! CofiBertForSequenceClassification
 
     model.resize_token_embeddings(len(tokenizer))
-
-    
-
 
 
     # initialize the layer transformation matrix to be an identity matrix
@@ -414,10 +396,6 @@ def main():
     elif data_args.task_name is None and not is_regression:
         label_to_id = {v: i for i, v in enumerate(label_list)}
 
-    
-
-
-
     if label_to_id is not None:
         model.config.label2id = label_to_id
         model.config.id2label = {id: label for label, id in config.label2id.items()}
@@ -447,9 +425,9 @@ def main():
     train_dataset_arr = []
 
     eval_dataset_arr = []
+    
 
-
-    if multiple_datasets is not True:
+    if data_args.task_list is None:
         with training_args.main_process_first(desc="dataset map pre-processing"):
             raw_datasets = raw_datasets.map(
                 preprocess_function,
@@ -531,23 +509,27 @@ def main():
             
             train_dataset_arr.append(train_dataset)
             eval_dataset_arr.append(eval_dataset)
+
+
+        print("\n\ntrain_datset at 500", train_dataset_arr[0][500], "\n\n")
+        print("\n\ntrain_datset at 500", train_dataset_arr[1][500], "\n\n")
             
-    # new_features = Features({
-    #     'sentence': Value('string'), 
-    #     'label': ClassLabel(num_classes=2, names=['negative', 'positive'], names_file=None, id=None), 
-    #     'idx': Value('int32'),
-    #     'input_ids': Sequence(Value('int32')),  # Correctly define sequence features
-    #     'token_type_ids': Sequence(Value('int8')),
-    #     'attention_mask': Sequence(Value('int8')),
-    # })
-    combined_eval_dataset = {task: eval_dataset_arr[i] for i, task in enumerate(data_args.task_list)}
+        combined_eval_dataset = {task: eval_dataset_arr[i] for i, task in enumerate(data_args.task_list)}
+
+        train_dataset = interleave_datasets([train_dataset_arr[0], train_dataset_arr[1]]) #train_dataset_arr[0] + train_dataset_arr[1]
+
+        eval_dataset = interleave_datasets([eval_dataset_arr[0], eval_dataset_arr[1]])
+
 
     # You can define your custom compute_metrics function. It takes an `EvalPrediction` object (a namedtuple with a
     # predictions and label_ids field) and has to return a dictionary string to float.
     def compute_metrics(task, p: EvalPrediction):
         preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
         preds = np.squeeze(preds) if is_regression else np.argmax(preds, axis=1)
+        # if task is None:
+        return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
         if data_args.task_name is not None:
+            metric = load_metric("glue", data_args.task_name)
             result = metric.compute(predictions=preds, references=p.label_ids)
             if len(result) > 1:
                 result["combined_score"] = np.mean(list(result.values())).item()
@@ -560,8 +542,7 @@ def main():
             return result
         elif is_regression:
             return {"mse": ((preds - p.label_ids) ** 2).mean().item()}
-        else:
-            return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
+        
 
     # Data collator will default to DataCollatorWithPadding when the tokenizer is passed to Trainer, so we change it if
     # we already did the padding.
@@ -576,17 +557,7 @@ def main():
 
 # Apply the new feature schema to both datasets
     
-    train_dataset_arr[0] = train_dataset_arr[0].remove_columns("idx")
-    train_dataset_arr[1] = train_dataset_arr[1].remove_columns("idx")
 
-    train_dataset = train_dataset_arr #concatenate_datasets([train_dataset_arr[0], train_dataset_arr[1]]) #train_dataset_arr[0] + train_dataset_arr[1]
-    eval_dataset = combined_eval_dataset
-
-    # train_dataset = train_dataset.remove_columns("idx")
-    # eval_dataset["cola"] = eval_dataset["cola"].remove_columns("idx")
-
-
-   
 
     logger.info(
         f"************* {len(train_dataset)} Training Examples Loaded *************")
@@ -612,11 +583,6 @@ def main():
         teacher_model=teacher_model
     )
 
-
-    print("\n\n",train_dataset)
-
-
-    # return
 
     if training_args.do_train:
         trainer.train()

@@ -95,6 +95,8 @@ class CoFiTrainer(Trainer):
 
         self.additional_args = additional_args
 
+        self.tokenizer = tokenizer
+
         self.l0_module = l0_module
         self.prepruning_finetune_steps = 100
         self.start_prune = False
@@ -176,24 +178,15 @@ class CoFiTrainer(Trainer):
     def train(self):
         if self.train_dataset is None:
             raise ValueError("Trainer: training requires a train_dataset.")
-        # train_sampler = self._get_train_sampler()
-        train_dataloader = DataLoader(
-                                    self.train_dataset[0],
-                                    batch_size=self.args.eval_batch_size,
-                                    shuffle=True,
-                                    # sampler=train_sampler,
-                                    collate_fn=self.data_collator,
-                                    drop_last=self.args.dataloader_drop_last,
-                                    )
-        
-        train_dataloaderB = DataLoader(
-                                    self.train_dataset[1],
-                                    batch_size=self.args.eval_batch_size,
-                                    shuffle=True,
-                                    # sampler=train_sampler,
-                                    collate_fn=self.data_collator,
-                                    drop_last=self.args.dataloader_drop_last,
-                                    )
+
+        print("\n\ntrain_datset in trainer at 0", self.train_dataset[0], "\n\n")
+
+        train_dataloader = self.get_train_dataloader()
+
+        print("\n\ntrain_dataloader: ", next(iter(train_dataloader)), "\n\n")
+
+        # return
+
         num_update_steps_per_epoch = len(
             train_dataloader) // self.args.gradient_accumulation_steps
         num_update_steps_per_epoch = max(num_update_steps_per_epoch, 1) #! 12272
@@ -288,62 +281,7 @@ class CoFiTrainer(Trainer):
                               disable=disable_tqdm)
             self.eval_counter.clear()
 
-            step = 0
-
-            task = None
-
-            while step < len(train_dataloader) + len(train_dataloaderB):
-
-                if(step == 0 or step % 2 == 0):
-                    inputs = next(iter(train_dataloader))
-                    epoch_iterator = train_dataloader
-                    task = "taskA"
-                else:
-                    inputs = next(iter(train_dataloaderB))
-                    epoch_iterator = train_dataloaderB
-                    task = "taskB"
-                
-                if task == "taskA" and epoch % 2 != 0:
-                    loss_terms = self.training_step(model, inputs, task)
-                    tr_loss_step = loss_terms["loss"]
-                    lag_loss_step = loss_terms["lagrangian_loss"]
-
-                    tr_loss += tr_loss_step
-                    lag_loss += lag_loss_step if lag_loss_step is not None else 0.0
-
-                    if self.global_step % self.args.eval_steps == 0:
-                        if(isinstance(self.model.config.finetuning_task, list)):
-                            self.evaluate_multiple()
-
-                        else:
-                            self.evaluate()
-                    
-                    step += 1
-                    continue
-
-                elif task == "taskB" and epoch % 2 == 0:
-                    loss_terms = self.training_step(model, inputs, task)
-                    tr_loss_step = loss_terms["loss"]
-                    lag_loss_step = loss_terms["lagrangian_loss"]
-
-                    tr_loss += tr_loss_step
-                    lag_loss += lag_loss_step if lag_loss_step is not None else 0.0
-
-                    if self.global_step % self.args.eval_steps == 0:
-                        if(isinstance(self.model.config.finetuning_task, list)):
-                            self.evaluate_multiple()
-
-                        else:
-                            self.evaluate()
-                    
-                    step += 1
-                    continue
-
-
-
-
-                self.total_flos += self.floating_point_ops(inputs)
-
+            for step, inputs in enumerate(epoch_iterator):
                 if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps: #! before pruning, run 12272 steps
                     self.start_prune = True
 
@@ -359,7 +297,7 @@ class CoFiTrainer(Trainer):
                     zs = self.l0_module.forward(training=True) #! get the zs
                     self.fill_inputs_with_zs(zs, inputs) #! use the zs
 
-                loss_terms = self.training_step(model, inputs, task)
+                loss_terms = self.training_step(model, inputs)
                 tr_loss_step = loss_terms["loss"]
                 lag_loss_step = loss_terms["lagrangian_loss"]
 
@@ -437,10 +375,8 @@ class CoFiTrainer(Trainer):
 
                 epoch_pbar.update(1)
 
-
-                # if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
-                #     break
-                step += 1
+                if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
+                    break
 
             epoch_end = time.time()
             # wandb.log({'epoch':epoch})
@@ -450,8 +386,8 @@ class CoFiTrainer(Trainer):
             epoch_pbar.close()
             train_pbar.update(1)
 
-            # if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
-            #     break
+            if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
+                break
 
         train_pbar.close()
 
@@ -580,20 +516,23 @@ class CoFiTrainer(Trainer):
         return PredictionOutput(predictions=all_preds, label_ids=all_labels, metrics=metrics)
 
     def evaluate_multiple(self, eval_dataset: Optional[Dataset] = None) -> Tuple[Dict[str, float], List]:
-        task_list = self.model.config.finetuning_task
-        eval_dataset = self.eval_dataset
-        loss = 0
-        for task in task_list:
-            self.model.config.finetuning_task = task
-            self.eval_dataset = eval_dataset[task]
-            metrics = self.evaluate()
-            loss += metrics["eval_loss"]
+        # task_list = self.model.config.finetuning_task
+        # eval_dataset = self.eval_dataset
+        # loss = 0
+        # for task in task_list:
+        #     self.model.config.finetuning_task = task
+        #     self.eval_dataset = eval_dataset[task]
+        #     metrics = self.evaluate()
+        #     loss += metrics["eval_loss"]
 
 
-        self.model.config.finetuning_task = task_list
-        self.eval_dataset = eval_dataset
+        # self.model.config.finetuning_task = task_list
+        # self.eval_dataset = eval_dataset
 
-        logger.info("***** Combined Loss: %f *****", loss)
+        # logger.info("***** Combined Loss: %f *****", loss)
+
+        self.model.config.finetuning_task = None
+        return self.evaluate()
             
     def evaluate(self, eval_dataset: Optional[Dataset] = None) -> Tuple[Dict[str, float], List]:
         # eval_sampler = self._get_eval_sampler(eval_dataset)
@@ -611,7 +550,8 @@ class CoFiTrainer(Trainer):
 
         eval_score = 0
 
-        name = glue_tasks[self.model.config.finetuning_task]
+        # name = glue_tasks[self.model.config.finetuning_task]
+        name = "accuracy"
         if isinstance(name, str):
             if name in output.metrics:
                 eval_score = output.metrics[name]
@@ -767,9 +707,7 @@ class CoFiTrainer(Trainer):
             inputs["token_type_ids"] = inputs["token_type_ids"][:, :max_length]
 
 
-    def training_step(self, model: torch.nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]], task) -> List[torch.Tensor]:
-
-
+    def training_step(self, model: torch.nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]]) -> List[torch.Tensor]:
         model.train()
         if self.l0_module is not None:
             self.l0_module.train()
@@ -787,7 +725,8 @@ class CoFiTrainer(Trainer):
                 self.shortens_inputs(teacher_inputs)
                 teacher_outputs = self.teacher_model(**teacher_inputs)
             self.shortens_inputs(inputs)
-            student_outputs = model(**inputs, task=task) #! get the two outputs
+            
+            student_outputs = model(**inputs) #! get the two outputs
 
             zs = {key: inputs[key] for key in inputs if "_z" in key} #! extract the zs
             distill_loss, distill_ce_loss, loss = self.calculate_distillation_loss(
