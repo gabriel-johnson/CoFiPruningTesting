@@ -134,24 +134,15 @@ class CoFiBertForSequenceClassification(BertForSequenceClassification):
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output) #! [32, 3]
 
-
-
-
-
         task1Logits = self.task1_head(pooled_output)
-        task2Logits = self.task1_head(pooled_output)
+        task2Logits = self.task2_head(pooled_output)
         
-
         logits = torch.zeros_like(task1Logits)  # Placeholder for the final logits
         for i, input in enumerate(input_ids):
             if input_ids[i][1].item() == 30522:
                 logits[i] = task1Logits[i]
             elif input_ids[i][1].item() == 30523:
                 logits[i] = task2Logits[i]
-            
-                
-
-
 
         loss = None
         if labels is not None:

@@ -28,6 +28,9 @@ from utils.cofi_utils import *
 from utils.qa_utils import *
 from utils.utils import *
 
+import data_formater
+
+
 
 task_to_keys = {
     "cola": ("sentence", None),
@@ -250,6 +253,8 @@ if __name__ == '__main__':
             set_name = "validation"
         dataset = datasets.load_dataset("glue", task_name)[set_name]
         dataset = dataset.map(glue_preprocess_function, batched=True)
+
+        dataset = data_formater.map_labels(task_name, dataset, 0)
 
         compute_metrics = get_glue_metric()
     else:
