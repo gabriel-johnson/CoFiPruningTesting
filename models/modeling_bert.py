@@ -139,6 +139,7 @@ class CoFiBertForSequenceClassification(BertForSequenceClassification):
         
         logits = torch.zeros_like(task1Logits)  # Placeholder for the final logits
         for i, input in enumerate(input_ids):
+            print("\n\ninput_ids", input_ids[i], "\n\n")
             if input_ids[i][1].item() == 30522:
                 logits[i] = task1Logits[i]
             elif input_ids[i][1].item() == 30523:
