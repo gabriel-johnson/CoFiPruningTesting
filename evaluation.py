@@ -243,9 +243,6 @@ if __name__ == '__main__':
     tokenizer = AutoTokenizer.from_pretrained(
         model_name_or_path, use_fast=True if task_name == "squad" else False, padding_side="right", truncation_size="right")
 
-#    glue_token_list = {"additional_special_tokens": ["<cola>", "<sst2>"]}
- #   tokenizer.add_special_tokens(glue_token_list)
-
 
     if task_name != "squad":
         # data_args = DataTrainingArguments(task_name=task_name,
