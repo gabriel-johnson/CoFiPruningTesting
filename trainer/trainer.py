@@ -185,7 +185,6 @@ class CoFiTrainer(Trainer):
             self.l0_module.set_lagrangian_warmup_steps(lagrangian_warmup_steps)
             logger.info(f"Prepruning finetune steps: {self.prepruning_finetune_steps}")
             logger.info(f"Lagrangian warmup steps: {lagrangian_warmup_steps}")
-        num_train_epochs += 5
         if self.args.max_steps > 0:
             self.t_total = self.args.max_steps
             num_train_epochs = self.args.max_steps // num_update_steps_per_epoch + int(
@@ -197,6 +196,7 @@ class CoFiTrainer(Trainer):
             num_train_epochs = self.args.num_train_epochs
             self.args.max_steps = self.t_total
 
+        num_train_epochs += 5
         self.create_optimizer_and_scheduler(num_training_steps=self.t_total, build_l0_optimizer = self.start_prune)
 
         model = self.model
