@@ -267,7 +267,7 @@ class CoFiTrainer(Trainer):
             self.eval_counter.clear()
 
             for step, inputs in enumerate(epoch_iterator):
-                if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps and num_train_epochs >= 5: #! before pruning, run 12272 steps
+                if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps and epoch >= 5: #! before pruning, run 12272 steps
                     self.start_prune = True
 
                     self.optimizer = None
