@@ -234,6 +234,8 @@ def main():
 
     if data_args.task_list is not None:
         combined_raw_datasets = []    
+        label_list = ["negative", "positive"]
+
 
         for (index, dataset) in enumerate(raw_datasets):
             combined_raw_datasets.append(create_dataset(data_args.task_list[index], dataset, label_count))
@@ -274,7 +276,6 @@ def main():
 
     is_regression = False
 
-    label_list = ["negative", "positive"]
     num_labels = len(label_list)
 
     label_map = {i: label for i, label in enumerate(label_list)}
@@ -516,9 +517,15 @@ def main():
             
         combined_eval_dataset = {task: eval_dataset_arr[i] for i, task in enumerate(data_args.task_list)}
 
-        train_dataset = interleave_datasets([train_dataset_arr[0], train_dataset_arr[1]], stopping_strategy="all_exhausted") #train_dataset_arr[0] + train_dataset_arr[1]
+        total_train_len = len(train_dataset_arr[0]) + len(train_dataset_arr[1])
+        train_probabilities = [len(train_dataset_arr[0])/ total_train_len, len(train_dataset_arr[1])/ total_train_len]
+        
+        train_dataset = interleave_datasets([train_dataset_arr[0], train_dataset_arr[1]], probabilities=train_probabilities, stopping_strategy="all_exhausted") #train_dataset_arr[0] + train_dataset_arr[1]
 
-        eval_dataset = interleave_datasets([eval_dataset_arr[0], eval_dataset_arr[1]], stopping_strategy="all_exhausted")
+        total_eval_len = len(eval_dataset_arr[0]) + len(eval_dataset_arr[1])
+        eval_probabilities = [len(eval_dataset_arr[0])/ total_eval_len, len(eval_dataset_arr[1])/ total_eval_len]
+
+        eval_dataset = interleave_datasets([eval_dataset_arr[0], eval_dataset_arr[1]], probabilities=eval_probabilities, stopping_strategy="all_exhausted")
 
 
     # You can define your custom compute_metrics function. It takes an `EvalPrediction` object (a namedtuple with a
@@ -591,8 +598,13 @@ def main():
         teacher_model=teacher_model
     )
 
+        
+            
+
 
     if training_args.do_train:
+
+        # trainer.prelim_train(combined_raw_datasets)
         trainer.train()
         trainer.save_model()
         tokenizer.save_pretrained(training_args.output_dir)

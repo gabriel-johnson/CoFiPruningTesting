@@ -48,9 +48,6 @@ class CoFiBertForSequenceClassification(BertForSequenceClassification):
 
         self.do_layer_distill = getattr(config, "do_layer_distill", False)
 
-        self.task1_head = nn.Linear(config.hidden_size, 2)
-        self.task2_head = nn.Linear(config.hidden_size, 2)
-
         if self.do_layer_distill:
             self.layer_transformation = nn.Linear(
                 config.hidden_size, config.hidden_size)
@@ -134,19 +131,6 @@ class CoFiBertForSequenceClassification(BertForSequenceClassification):
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output) #! [32, 3]
 
-        task1Logits = self.task1_head(pooled_output)
-        task2Logits = self.task2_head(pooled_output)
-        
-        logits = torch.zeros_like(task1Logits)  # Placeholder for the final logits
-        for i, input in enumerate(input_ids):
-#            print("\n\ninput_ids", input_ids[i], "\n\n")
-            if input_ids[i][1].item() == 30522:
-                logits[i] = task1Logits[i]
-                #print("\nfirst output head")
-            elif input_ids[i][1].item() == 30523:
-                logits[i] = task2Logits[i]
-                #print("\nsecond output head")
-
         loss = None
         if labels is not None:
             if self.num_labels == 1:
@@ -161,7 +145,6 @@ class CoFiBertForSequenceClassification(BertForSequenceClassification):
         if not return_dict:
             output = (logits,) + outputs[2:]
             return ((loss,) + output) if loss is not None else output
-        
 
         return SequenceClassifierOutput(
             loss=loss,

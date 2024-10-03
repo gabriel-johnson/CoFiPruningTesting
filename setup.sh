@@ -5,11 +5,11 @@ module load openssl/3.1.5
 module load cuda/12.1
 
 
-TASK=[CoLA,SST2]
-SUFFIX=training_before.60
+TASK=MNLI
+SUFFIX=mnli_60_again
 EX_CATE=CoFi
 PRUNING_TYPE=structured_heads+structured_mlp+hidden+layer
-SPARSITY=0.60
+SPARSITY=.60
 DISTILL_LAYER_LOSS_ALPHA=0.9
 DISTILL_CE_LOSS_ALPHA=0.1
 LAYER_DISTILL_VERSION=4
