@@ -538,11 +538,11 @@ def main():
         preds = np.squeeze(preds) if is_regression else np.argmax(preds, axis=1)
         metric = load_metric("accuracy")
         result = metric.compute(predictions=preds, references=p.label_ids)
-        if len(result) > 1:
-            result["combined_score"] = np.mean(list(result.values())).item()
-        return result
+        # if len(result) > 1:
+        #     result["combined_score"] = np.mean(list(result.values())).item()
+        # return result
     
-        return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
+        # return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
         if data_args.task_name is not None:
             metric = load_metric("glue", data_args.task_name)
             result = metric.compute(predictions=preds, references=p.label_ids)

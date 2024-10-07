@@ -316,7 +316,7 @@ class CoFiTrainer(Trainer):
             self.eval_counter.clear()
 
             for step, inputs in enumerate(epoch_iterator):
-                if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps and epoch >= 5: #! before pruning, run 12272 steps
+                if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps: #! before pruning, run 12272 steps
                     self.start_prune = True
 
                     self.optimizer = None
@@ -327,9 +327,7 @@ class CoFiTrainer(Trainer):
                     self.create_optimizer_and_scheduler(lr_steps, self.start_prune)
                     logger.info("Starting l0 regularization!")
 
-                if epoch < 5:
-                    self.start_prune = False
-
+            
                 if self.start_prune:
                     zs = self.l0_module.forward(training=True) #! get the zs
                     self.fill_inputs_with_zs(zs, inputs) #! use the zs
