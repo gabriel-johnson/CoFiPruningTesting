@@ -1,3 +1,7 @@
+module load python/3.10
+module load openssl/3.1.5
+module load cuda/12.1
+
 TASK=MNLI
 SUFFIX=sparsity_95
 EX_CATE=CoFi
