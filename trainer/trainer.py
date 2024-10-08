@@ -245,7 +245,7 @@ class CoFiTrainer(Trainer):
             num_train_epochs = self.args.num_train_epochs
             self.args.max_steps = self.t_total
 
-        num_train_epochs += 5
+        # num_train_epochs += 5
         self.create_optimizer_and_scheduler(num_training_steps=self.t_total, build_l0_optimizer = self.start_prune)
 
         model = self.model
