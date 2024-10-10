@@ -172,52 +172,7 @@ class CoFiTrainer(Trainer):
                 )
             else:
                 self.lr_scheduler = None
-
-
-    # def prelim_train_step(self, dataloader, optimizer):
-    #     # do something
-    #     model = self.model
-    #     loss_fn = self.evaluate
-    #     size = len(dataloader.dataset)
-    # # Set the model to training mode - important for batch normalization and dropout layers
-    # # Unnecessary in this situation but added for best practices
-    #     model.train()
-    #     for batch, (X, y) in enumerate(dataloader):
-    #         # Compute prediction and loss
-    #         pred = model(X)
-    #         loss = loss_fn(pred, y)
-
-    #         # Backpropagation
-    #         loss.backward()
-    #         optimizer.step()
-    #         optimizer.zero_grad()
-
-    #         if batch % 100 == 0:
-    #             loss, current = loss.item(), batch * batch_size + len(X)
-    #             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
-        
-
-
-    # def prelim_train(self, prelim_dataset): 
-    #     model = self.model
-    #     model.train()
-
-    #     for t in range 5:
-    #         logger.info("Initial training epoch ", t, "\n")
-
-    #         for i, data in enumerate(prelim_dataset['test']):
-    #             prelim_dataloader = DataLoader(
-    #                                         data,
-    #                                         batch_size=self.args.eval_batch_size,
-    #                                         shuffle=True,
-    #                                         collate_fn=self.data_collator,
-    #                                         drop_last=self.args.dataloader_drop_last,
-    #                                         )
-
-
-            
-            
-    
+   
         
         
         
