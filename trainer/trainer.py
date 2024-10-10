@@ -514,8 +514,8 @@ class CoFiTrainer(Trainer):
 
         eval_score = 0
 
-        # name = glue_tasks[self.model.config.finetuning_task]
-        name = "accuracy"
+        name = glue_tasks[self.model.config.finetuning_task]
+        # name = "accuracy"
         if isinstance(name, str):
             if name in output.metrics:
                 eval_score = output.metrics[name]
