@@ -106,8 +106,11 @@ class CoFiTrainer(Trainer):
         self.start_saving_best = True if self.additional_args.pruning_type is None else False
 
         self.teacher_model = teacher_model
-        if self.teacher_model is not None:
+        if self.teacher_model is not None and type(self.teacher_model) is not list:
             self.teacher_model = self.teacher_model.to(self.args.device)
+        elif self.teacher_model and type(self.teacher_model) is list:
+            for model in self.teacher_model:
+                model = model.to(self.args.device)
 
         log_level = args.get_process_log_level()
         logging.set_verbosity(log_level)
@@ -178,7 +181,26 @@ class CoFiTrainer(Trainer):
         
 
     def train(self):
-        train_dataloader = self.get_train_dataloader()
+        # train_dataloader = self.get_train_dataloader()
+
+
+        train_dataloader = DataLoader(
+                                    self.train_dataset[0],
+                                    batch_size=self.args.eval_batch_size,
+                                    shuffle=True,
+                                    # sampler=train_sampler,
+                                    collate_fn=self.data_collator,
+                                    drop_last=self.args.dataloader_drop_last,
+                                    )
+        
+        train_dataloaderB = DataLoader(
+                                    self.train_dataset[1],
+                                    batch_size=self.args.eval_batch_size,
+                                    shuffle=True,
+                                    # sampler=train_sampler,
+                                    collate_fn=self.data_collator,
+                                    drop_last=self.args.dataloader_drop_last,
+                                    )
         num_update_steps_per_epoch = len(
             train_dataloader) // self.args.gradient_accumulation_steps
         num_update_steps_per_epoch = max(num_update_steps_per_epoch, 1) #! 12272
@@ -247,11 +269,17 @@ class CoFiTrainer(Trainer):
         if self.lagrangian_optimizer is not None:
             self.lagrangian_optimizer.zero_grad()
 
+        teacher_models = self.teacher_model
+
         disable_tqdm = self.args.disable_tqdm or not self.is_local_process_zero()
         train_pbar = trange(epochs_trained, int(
             np.ceil(num_train_epochs)), desc="Epoch", disable=disable_tqdm)
 
-        self.evaluate()
+        if(isinstance(self.model.config.finetuning_task, list)):
+            self.evaluate_multiple()
+
+        else:
+            self.evaluate()
 
         # training
         for epoch in range(epochs_trained, int(np.ceil(num_train_epochs))): #! 20 epoch
@@ -270,7 +298,64 @@ class CoFiTrainer(Trainer):
                               disable=disable_tqdm)
             self.eval_counter.clear()
 
-            for step, inputs in enumerate(epoch_iterator):
+            
+            step = 0
+
+            task = None
+
+
+            while step < len(train_dataloader) + len(train_dataloaderB):
+
+                if(step == 0 or step % 2 == 0):
+                    inputs = next(iter(train_dataloader))
+                    self.teacher_model=teacher_models[0]
+                    epoch_iterator = train_dataloader
+                    task = "taskA"
+                else:
+                    inputs = next(iter(train_dataloaderB))
+                    self.teacher_model=teacher_models[1]
+
+                    epoch_iterator = train_dataloaderB
+                    task = "taskB"
+                
+                if task == "taskA" and epoch % 2 != 0:
+                    loss_terms = self.training_step(model, inputs, task)
+                    tr_loss_step = loss_terms["loss"]
+                    lag_loss_step = loss_terms["lagrangian_loss"]
+
+                    tr_loss += tr_loss_step
+                    lag_loss += lag_loss_step if lag_loss_step is not None else 0.0
+
+                    if self.global_step % self.args.eval_steps == 0:
+                        if(isinstance(self.model.config.finetuning_task, list)):
+                            self.evaluate_multiple()
+
+                        else:
+                            self.evaluate()
+                    
+                    step += 1
+                    continue
+
+                elif task == "taskB" and epoch % 2 == 0:
+                    loss_terms = self.training_step(model, inputs, task)
+                    tr_loss_step = loss_terms["loss"]
+                    lag_loss_step = loss_terms["lagrangian_loss"]
+
+                    tr_loss += tr_loss_step
+                    lag_loss += lag_loss_step if lag_loss_step is not None else 0.0
+
+                    if self.global_step % self.args.eval_steps == 0:
+                        if(isinstance(self.model.config.finetuning_task, list)):
+                            self.evaluate_multiple()
+
+                        else:
+                            self.evaluate()
+                    
+                    step += 1
+                    continue
+    
+                self.total_flos += self.floating_point_ops(inputs)
+
                 if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps: #! before pruning, run 12272 steps
                     self.start_prune = True
 
@@ -357,7 +442,11 @@ class CoFiTrainer(Trainer):
                         self.log(logs)
 
                     if self.global_step % self.args.eval_steps == 0:
-                        self.evaluate()
+                        if(isinstance(self.model.config.finetuning_task, list)):
+                            self.evaluate_multiple()
+
+                        else:
+                            self.evaluate()
 
                 epoch_pbar.update(1)
 
@@ -500,6 +589,22 @@ class CoFiTrainer(Trainer):
         self.model.config.output_attentions = True
 
         return PredictionOutput(predictions=all_preds, label_ids=all_labels, metrics=metrics)
+
+    def evaluate_multiple(self, eval_dataset: Optional[Dataset] = None) -> Tuple[Dict[str, float], List]:
+        task_list = self.model.config.finetuning_task
+        teach_model = self.teacher_model
+        eval_dataset = self.eval_dataset
+        for i, task in enumerate(task_list):
+            self.model.config.finetuning_task = task
+            self.eval_dataset = eval_dataset[task]
+            if type(self.teacher_model) is list: 
+                self.teacher_model = teach_model[i]
+            self.evaluate()
+
+        self.model.config.finetuning_task = task_list
+        self.eval_dataset = eval_dataset
+        self.teacher_model = teach_model
+
 
     def evaluate(self, eval_dataset: Optional[Dataset] = None) -> Tuple[Dict[str, float], List]:
         eval_dataloader = self.get_eval_dataloader(eval_dataset)

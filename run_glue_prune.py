@@ -54,19 +54,6 @@ glue_tasks_num_labels = {
 
 logger = logging.getLogger(__name__)
 
-class CustomDataset(torch.utils.data.Dataset):
-    def __init__(self, encodings, labels):
-        self.encodings = encodings
-        self.labels = labels
-
-    def __getitem__(self, idx):
-        item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
-        item['labels'] = torch.tensor(self.labels[idx])
-        return item
-
-    def __len__(self):
-        return len(self.labels)
-
 
 def main():
     parser = HfArgumentParser(
@@ -197,7 +184,7 @@ def main():
         "bert") else CoFiRobertaForSequenceClassification
 
 
-    glue_token_list = {"additional_special_tokens": ["<cola>", "<sst2>"]}
+    glue_token_list = {"additional_special_tokens": ["<qqp>", "<qnli>"]}
 
 
     tokenizer = AutoTokenizer.from_pretrained(
@@ -240,18 +227,18 @@ def main():
         for (index, dataset) in enumerate(raw_datasets):
             combined_raw_datasets.append(create_dataset(data_args.task_list[index], dataset, label_count))
             # label_count = label_count + glue_tasks_num_labels[data_args.task_list[index]]
-        label_list = []
+        # label_list = []
     
-        is_regression = []
-        num_labels = 0
-        for index, task in enumerate(data_args.task_list):
-            is_regression.append(data_args.task_name == "stsb")
-            if not is_regression[index]:
-                for label in raw_datasets[index]["train"].features["label"].names:
-                    label_list.append(label)
-                    num_labels = num_labels + 1
-            else:
-                raw_datasets[index]["num_labels"] = 1
+        # is_regression = []
+        # num_labels = 0
+        # for index, task in enumerate(data_args.task_list):
+        #     is_regression.append(data_args.task_name == "stsb")
+        #     if not is_regression[index]:
+        #         for label in raw_datasets[index]["train"].features["label"].names:
+        #             label_list.append(label)
+        #             num_labels = num_labels + 1
+        #     else:
+        #         raw_datasets[index]["num_labels"] = 1
        
 
     elif data_args.task_name is not None:
@@ -276,7 +263,7 @@ def main():
 
     is_regression = False
 
-    num_labels = len(label_list)
+    num_labels = 2#len(label_list)
 
     label_map = {i: label for i, label in enumerate(label_list)}
     label_to_id = {label: i for i, label in enumerate(label_list)}
@@ -285,7 +272,7 @@ def main():
 
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
-        num_labels=num_labels,
+        num_labels=2,
         finetuning_task=data_args.task_name if data_args.task_name is not None else data_args.task_list,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
@@ -300,15 +287,27 @@ def main():
         config.output_attentions = True
         config.output_hidden_states = True
 
-    teacher_model = None
-    if additional_args.do_distill:
-        teacher_model = Model.from_pretrained(
-            additional_args.distillation_path,
-            config=deepcopy(config)
-        )
-        teacher_model.resize_token_embeddings(len(tokenizer))
+    
+    teacher_model = []
 
-        teacher_model.eval() #! inside has a cofibertmodel #! CofiBertForSequenceClassification
+
+
+    if additional_args.do_distill:
+        teacher_model.append( Model.from_pretrained(
+            "textattack/bert-base-uncased-QQP",
+            config=deepcopy(config)
+        ))
+        teacher_model[0].resize_token_embeddings(len(tokenizer))
+
+        teacher_model[0].eval() #! inside has a cofibertmodel #! CofiBertForSequenceClassification
+
+        teacher_model.append( Model.from_pretrained(
+            "textattack/bert-base-uncased-QNLI",
+            config=deepcopy(config)
+        ))
+        teacher_model[1].resize_token_embeddings(len(tokenizer))
+
+        teacher_model[1].eval()
 
 
     model = Model.from_pretrained(
@@ -508,7 +507,7 @@ def main():
                 for index in random.sample(range(len(train_dataset)), 3):
                     logger.info(f"Sample {index} of the training set: {train_dataset[index]}.")
             
-            train_dataset_arr.append(train_dataset)
+            train_dataset_arr.append(train_dataset.remove_columns("idx"))
             eval_dataset_arr.append(eval_dataset)
 
 
@@ -525,7 +524,10 @@ def main():
         total_eval_len = len(eval_dataset_arr[0]) + len(eval_dataset_arr[1])
         eval_probabilities = [len(eval_dataset_arr[0])/ total_eval_len, len(eval_dataset_arr[1])/ total_eval_len]
 
-        eval_dataset = interleave_datasets([eval_dataset_arr[0], eval_dataset_arr[1]], probabilities=eval_probabilities, stopping_strategy="all_exhausted")
+        # eval_dataset = interleave_datasets([eval_dataset_arr[0], eval_dataset_arr[1]], probabilities=eval_probabilities, stopping_strategy="all_exhausted")
+
+        eval_dataset = {l: eval_dataset_arr[i] for i, l in enumerate(data_args.task_list)}
+        print("\n\n\n******eval_dataset******\n\n",eval_dataset, "\n\n\n")
 
 
     # You can define your custom compute_metrics function. It takes an `EvalPrediction` object (a namedtuple with a
@@ -580,7 +582,7 @@ def main():
         f"************* {len(eval_dataset)} Evaluation Examples Loaded *************")
 
     model.resize_token_embeddings(len(tokenizer))
-    teacher_model.resize_token_embeddings(len(tokenizer))
+    # teacher_model.resize_token_embeddings(len(tokenizer))
 
     
 
@@ -589,7 +591,7 @@ def main():
         model=model,
         args=training_args,
         additional_args=additional_args,
-        train_dataset=train_dataset if training_args.do_train else None,
+        train_dataset=train_dataset_arr if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,
         compute_metrics=compute_metrics,
         tokenizer=tokenizer,
