@@ -181,9 +181,9 @@ class CoFiTrainer(Trainer):
         
 
     def train(self):
-        # train_dataloader = self.get_train_dataloader()
-
-
+        if self.train_dataset is None:
+            raise ValueError("Trainer: training requires a train_dataset.")
+        # train_sampler = self._get_train_sampler()
         train_dataloader = DataLoader(
                                     self.train_dataset[0],
                                     batch_size=self.args.eval_batch_size,
@@ -211,6 +211,7 @@ class CoFiTrainer(Trainer):
             self.l0_module.set_lagrangian_warmup_steps(lagrangian_warmup_steps)
             logger.info(f"Prepruning finetune steps: {self.prepruning_finetune_steps}")
             logger.info(f"Lagrangian warmup steps: {lagrangian_warmup_steps}")
+
         if self.args.max_steps > 0:
             self.t_total = self.args.max_steps
             num_train_epochs = self.args.max_steps // num_update_steps_per_epoch + int(
@@ -222,7 +223,6 @@ class CoFiTrainer(Trainer):
             num_train_epochs = self.args.num_train_epochs
             self.args.max_steps = self.t_total
 
-        # num_train_epochs += 5
         self.create_optimizer_and_scheduler(num_training_steps=self.t_total, build_l0_optimizer = self.start_prune)
 
         model = self.model
@@ -269,18 +269,17 @@ class CoFiTrainer(Trainer):
         if self.lagrangian_optimizer is not None:
             self.lagrangian_optimizer.zero_grad()
 
-        teacher_models = self.teacher_model
-
         disable_tqdm = self.args.disable_tqdm or not self.is_local_process_zero()
         train_pbar = trange(epochs_trained, int(
             np.ceil(num_train_epochs)), desc="Epoch", disable=disable_tqdm)
+        
+        teacher_model = self.teacher_model
 
         if(isinstance(self.model.config.finetuning_task, list)):
             self.evaluate_multiple()
 
         else:
             self.evaluate()
-
         # training
         for epoch in range(epochs_trained, int(np.ceil(num_train_epochs))): #! 20 epoch
             epoch_start = time.time()
@@ -298,63 +297,18 @@ class CoFiTrainer(Trainer):
                               disable=disable_tqdm)
             self.eval_counter.clear()
 
-            
             step = 0
 
             task = None
-
 
             while step < len(train_dataloader) + len(train_dataloaderB):
 
                 if(step == 0 or step % 2 == 0):
                     inputs = next(iter(train_dataloader))
-                    self.teacher_model=teacher_models[0]
-                    epoch_iterator = train_dataloader
-                    task = "taskA"
+                    self.teacher_model=teacher_model[0]
                 else:
                     inputs = next(iter(train_dataloaderB))
-                    self.teacher_model=teacher_models[1]
-
-                    epoch_iterator = train_dataloaderB
-                    task = "taskB"
-                
-                if task == "taskA" and epoch % 2 != 0:
-                    loss_terms = self.training_step(model, inputs, task)
-                    tr_loss_step = loss_terms["loss"]
-                    lag_loss_step = loss_terms["lagrangian_loss"]
-
-                    tr_loss += tr_loss_step
-                    lag_loss += lag_loss_step if lag_loss_step is not None else 0.0
-
-                    if self.global_step % self.args.eval_steps == 0:
-                        if(isinstance(self.model.config.finetuning_task, list)):
-                            self.evaluate_multiple()
-
-                        else:
-                            self.evaluate()
-                    
-                    step += 1
-                    continue
-
-                elif task == "taskB" and epoch % 2 == 0:
-                    loss_terms = self.training_step(model, inputs, task)
-                    tr_loss_step = loss_terms["loss"]
-                    lag_loss_step = loss_terms["lagrangian_loss"]
-
-                    tr_loss += tr_loss_step
-                    lag_loss += lag_loss_step if lag_loss_step is not None else 0.0
-
-                    if self.global_step % self.args.eval_steps == 0:
-                        if(isinstance(self.model.config.finetuning_task, list)):
-                            self.evaluate_multiple()
-
-                        else:
-                            self.evaluate()
-                    
-                    step += 1
-                    continue
-    
-                self.total_flos += self.floating_point_ops(inputs)
+                    self.teacher_model = teacher_model[1]
 
                 if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps: #! before pruning, run 12272 steps
                     self.start_prune = True
@@ -367,7 +321,6 @@ class CoFiTrainer(Trainer):
                     self.create_optimizer_and_scheduler(lr_steps, self.start_prune)
                     logger.info("Starting l0 regularization!")
 
-                self.start_prune = False
                 if self.start_prune:
                     zs = self.l0_module.forward(training=True) #! get the zs
                     self.fill_inputs_with_zs(zs, inputs) #! use the zs
@@ -452,6 +405,7 @@ class CoFiTrainer(Trainer):
 
                 if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
                     break
+                step += 1
 
             epoch_end = time.time()
             # wandb.log({'epoch':epoch})

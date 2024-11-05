@@ -28,6 +28,9 @@ from utils.cofi_utils import *
 from utils.qa_utils import *
 from utils.utils import *
 
+import data_formater
+
+
 
 task_to_keys = {
     "cola": ("sentence", None),
@@ -240,6 +243,10 @@ if __name__ == '__main__':
     tokenizer = AutoTokenizer.from_pretrained(
         model_name_or_path, use_fast=True if task_name == "squad" else False, padding_side="right", truncation_size="right")
 
+#    glue_token_list = {"additional_special_tokens": ["<cola>", "<sst2>"]}
+ #   tokenizer.add_special_tokens(glue_token_list)
+
+
     if task_name != "squad":
         # data_args = DataTrainingArguments(task_name=task_name,
         #   data_dir=os.path.join(data_dir, task_name))
@@ -249,7 +256,19 @@ if __name__ == '__main__':
         else:
             set_name = "validation"
         dataset = datasets.load_dataset("glue", task_name)[set_name]
+
+        print("\n\nTASKNAME: ", task_name, "\n\n")
+        print("running map labels on that task")
+
+
+        dataset = data_formater.map_labels(task_name, dataset, 0)
+    
         dataset = dataset.map(glue_preprocess_function, batched=True)
+       # for data in dataset:
+        #    print("\n", data)
+
+        # print("\n\ndataset[0]: \n", dataset[0], "\n\n") 
+
 
         compute_metrics = get_glue_metric()
     else:
