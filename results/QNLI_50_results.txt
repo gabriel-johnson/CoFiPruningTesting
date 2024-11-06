@@ -1,0 +1,222 @@
+2.13 seconds for warmup
+
+
+TASKNAME:  qnli 
+
+
+running map labels on that task
+Layer 0, heads  pruned.
+Layer 1, heads  pruned.
+Layer 2, heads  pruned.
+Layer 3, heads  pruned.
+Layer 4, heads  pruned.
+Layer 5, heads  pruned.
+Layer 6, heads  pruned.
+Layer 7, heads  pruned.
+Layer 8, heads  pruned.
+Layer 9, heads  pruned.
+Layer 10, heads  pruned.
+Layer 11, heads  pruned.
+layer transformation torch.Size([768, 768])
+Layer: 0
+query: torch.Size([768, 768])
+key: torch.Size([768, 768])
+value: torch.Size([768, 768])
+output: torch.Size([768, 768])
+up: torch.Size([3072, 768])
+down: torch.Size([768, 3072])
+Layer: 1
+query: torch.Size([768, 768])
+key: torch.Size([768, 768])
+value: torch.Size([768, 768])
+output: torch.Size([768, 768])
+up: torch.Size([3072, 768])
+down: torch.Size([768, 3072])
+Layer: 2
+query: torch.Size([768, 768])
+key: torch.Size([768, 768])
+value: torch.Size([768, 768])
+output: torch.Size([768, 768])
+up: torch.Size([3072, 768])
+down: torch.Size([768, 3072])
+Layer: 3
+query: torch.Size([768, 768])
+key: torch.Size([768, 768])
+value: torch.Size([768, 768])
+output: torch.Size([768, 768])
+up: torch.Size([3072, 768])
+down: torch.Size([768, 3072])
+Layer: 4
+query: torch.Size([768, 768])
+key: torch.Size([768, 768])
+value: torch.Size([768, 768])
+output: torch.Size([768, 768])
+up: torch.Size([3072, 768])
+down: torch.Size([768, 3072])
+Layer: 5
+query: torch.Size([768, 768])
+key: torch.Size([768, 768])
+value: torch.Size([768, 768])
+output: torch.Size([768, 768])
+up: torch.Size([3072, 768])
+down: torch.Size([768, 3072])
+Layer: 6
+query: torch.Size([768, 768])
+key: torch.Size([768, 768])
+value: torch.Size([768, 768])
+output: torch.Size([768, 768])
+up: torch.Size([3072, 768])
+down: torch.Size([768, 3072])
+Layer: 7
+query: torch.Size([768, 768])
+key: torch.Size([768, 768])
+value: torch.Size([768, 768])
+output: torch.Size([768, 768])
+up: torch.Size([3072, 768])
+down: torch.Size([768, 3072])
+Layer: 8
+query: torch.Size([768, 768])
+key: torch.Size([768, 768])
+value: torch.Size([768, 768])
+output: torch.Size([768, 768])
+up: torch.Size([3072, 768])
+down: torch.Size([768, 3072])
+Layer: 9
+query: torch.Size([768, 768])
+key: torch.Size([768, 768])
+value: torch.Size([768, 768])
+output: torch.Size([768, 768])
+up: torch.Size([3072, 768])
+down: torch.Size([768, 3072])
+Layer: 10
+query: torch.Size([768, 768])
+key: torch.Size([768, 768])
+value: torch.Size([768, 768])
+output: torch.Size([768, 768])
+up: torch.Size([3072, 768])
+down: torch.Size([768, 3072])
+Layer: 11
+query: torch.Size([768, 768])
+key: torch.Size([768, 768])
+value: torch.Size([768, 768])
+output: torch.Size([768, 768])
+up: torch.Size([3072, 768])
+down: torch.Size([768, 3072])
+Load weights from out/[QQP,QNLI]/CoFi/[QQP,QNLI]_qqp_qnli_50/
+Model Size before pruning: 85057540
+Layer 0, heads 4 5 7 pruned.
+Layer 1, heads 0 3 5 6 8 9 pruned.
+Layer 2, heads 4 5 8 pruned.
+Layer 3, heads 1 2 4 6 10 pruned.
+Layer 4, heads 1 2 8 pruned.
+Layer 5, heads  pruned.
+Layer 6, heads 0 1 2 3 7 8 10 pruned.
+Layer 7, heads 2 3 6 7 11 pruned.
+Layer 8, heads  pruned.
+Layer 9, heads 1 2 4 7 9 10 pruned.
+Layer 10, heads 0 1 2 4 5 8 10 pruned.
+Layer 11, heads 0 1 2 3 4 5 6 7 8 9 10 11 pruned.
+layer transformation torch.Size([768, 766])
+Layer: 0
+query: torch.Size([576, 766])
+key: torch.Size([576, 766])
+value: torch.Size([576, 766])
+output: torch.Size([766, 576])
+up: torch.Size([1551, 766])
+down: torch.Size([766, 1551])
+Layer: 1
+query: torch.Size([384, 766])
+key: torch.Size([384, 766])
+value: torch.Size([384, 766])
+output: torch.Size([766, 384])
+up: torch.Size([1715, 766])
+down: torch.Size([766, 1715])
+Layer: 2
+query: torch.Size([576, 766])
+key: torch.Size([576, 766])
+value: torch.Size([576, 766])
+output: torch.Size([766, 576])
+up: torch.Size([2205, 766])
+down: torch.Size([766, 2205])
+Layer: 3
+query: torch.Size([448, 766])
+key: torch.Size([448, 766])
+value: torch.Size([448, 766])
+output: torch.Size([766, 448])
+up: torch.Size([1388, 766])
+down: torch.Size([766, 1388])
+Layer: 4
+query: torch.Size([576, 766])
+key: torch.Size([576, 766])
+value: torch.Size([576, 766])
+output: torch.Size([766, 576])
+up: torch.Size([1819, 766])
+down: torch.Size([766, 1819])
+Layer: 5
+query: torch.Size([768, 766])
+key: torch.Size([768, 766])
+value: torch.Size([768, 766])
+output: torch.Size([766, 768])
+up: torch.Size([2344, 766])
+down: torch.Size([766, 2344])
+Layer: 6
+query: torch.Size([320, 766])
+key: torch.Size([320, 766])
+value: torch.Size([320, 766])
+output: torch.Size([766, 320])
+up: torch.Size([1143, 766])
+down: torch.Size([766, 1143])
+Layer: 7
+query: torch.Size([448, 766])
+key: torch.Size([448, 766])
+value: torch.Size([448, 766])
+output: torch.Size([766, 448])
+up: torch.Size([1544, 766])
+down: torch.Size([766, 1544])
+Layer: 8
+query: torch.Size([768, 766])
+key: torch.Size([768, 766])
+value: torch.Size([768, 766])
+output: torch.Size([766, 768])
+up: torch.Size([2038, 766])
+down: torch.Size([766, 2038])
+Layer: 9
+query: torch.Size([384, 766])
+key: torch.Size([384, 766])
+value: torch.Size([384, 766])
+output: torch.Size([766, 384])
+up: torch.Size([627, 766])
+down: torch.Size([766, 627])
+Layer: 10
+query: torch.Size([320, 766])
+key: torch.Size([320, 766])
+value: torch.Size([320, 766])
+output: torch.Size([766, 320])
+up None
+down None
+Layer: 11
+query: None
+key: None
+value: None
+output: None
+up None
+down None
+Model Size after pruning: 42234332
+Model Size: 42234332
+The following columns in the evaluation set  don't have a corresponding argument in `CoFiBertForSequenceClassification.forward` and have been ignored: idx, question, sentence.
+Round 0: There are 43 batches in the dataset.
+The following columns in the evaluation set  don't have a corresponding argument in `CoFiBertForSequenceClassification.forward` and have been ignored: idx, question, sentence.
+Round 1: There are 43 batches in the dataset.
+The following columns in the evaluation set  don't have a corresponding argument in `CoFiBertForSequenceClassification.forward` and have been ignored: idx, question, sentence.
+Round 2: There are 43 batches in the dataset.
+The following columns in the evaluation set  don't have a corresponding argument in `CoFiBertForSequenceClassification.forward` and have been ignored: idx, question, sentence.
+Round 3: There are 43 batches in the dataset.
+The following columns in the evaluation set  don't have a corresponding argument in `CoFiBertForSequenceClassification.forward` and have been ignored: idx, question, sentence.
+Round 4: There are 43 batches in the dataset.
+Task: qnli
+Model path: out/[QQP,QNLI]/CoFi/[QQP,QNLI]_qqp_qnli_50/
+Model size: 42234332
+Sparsity: 0.503
+accuracy: 0.9059
+seconds/example: 0.000359
+
