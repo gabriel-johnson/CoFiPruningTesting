@@ -40,6 +40,18 @@ task_to_keys = {
     "wnli": ("sentence1", "sentence2"),
 }
 
+task_to_teacher_models = {
+    "cola" : "textattack/bert-base-uncased-CoLA",
+    "mnli" : "textattack/bert-base-uncased-MNLI",
+    "mrpc" : "textattack/bert-base-uncased-MRPC",
+    "qnli" : "textattack/bert-base-uncased-QNLI",
+    "qqp" :  "textattack/bert-base-uncased-QQP",
+    "rte" :  "textattack/bert-base-uncased-RTE",
+    "sst2" : "textattack/bert-base-uncased-SST-2",
+    "stsb" : "textattack/bert-base-uncased-STS-B",
+    "wnli" : "textattack/bert-base-uncased-WNLI",
+}
+
 glue_tasks_num_labels = {
     "cola": 2,
     "mnli": 3,
@@ -184,7 +196,7 @@ def main():
         "bert") else CoFiRobertaForSequenceClassification
 
 
-    glue_token_list = {"additional_special_tokens": ["<qqp>", "<qnli>"]}
+    glue_token_list = {"additional_special_tokens": [f"<{task}>" for task in data_args.task_list]}
 
 
     tokenizer = AutoTokenizer.from_pretrained(
@@ -288,26 +300,25 @@ def main():
         config.output_hidden_states = True
 
     
-    teacher_model = []
-
 
 
     if additional_args.do_distill:
-        teacher_model.append( Model.from_pretrained(
-            "textattack/bert-base-uncased-QQP",
-            config=deepcopy(config)
-        ))
-        teacher_model[0].resize_token_embeddings(len(tokenizer))
+        if data_args.task_list is not None:
+            teacher_model = []
+            for i, task in enumerate(data_args.task_list):
+                teacher_model.append(
+                    Model.from_pretrained(task_to_teacher_models[task], config=deepcopy(config))
+                )
+                teacher_model[i].resize_token_embeddings(len(tokenizer))
+                teacher_model[i].eval()
+        else:
+            teacher_model = Model.from_pretrained(
+                additional_args.distillation_path,
+                config=deepcopy(config)
+            )
+            teacher_model.eval()
 
-        teacher_model[0].eval() #! inside has a cofibertmodel #! CofiBertForSequenceClassification
 
-        teacher_model.append( Model.from_pretrained(
-            "textattack/bert-base-uncased-QNLI",
-            config=deepcopy(config)
-        ))
-        teacher_model[1].resize_token_embeddings(len(tokenizer))
-
-        teacher_model[1].eval()
 
 
     model = Model.from_pretrained(
@@ -511,20 +522,8 @@ def main():
             eval_dataset_arr.append(eval_dataset)
 
 
-        print("\n\ntrain_datset at 500", train_dataset_arr[0][500], "\n\n")
-        print("\n\ntrain_datset at 500", train_dataset_arr[1][500], "\n\n")
-            
-        combined_eval_dataset = {task: eval_dataset_arr[i] for i, task in enumerate(data_args.task_list)}
 
-        total_train_len = len(train_dataset_arr[0]) + len(train_dataset_arr[1])
-        train_probabilities = [len(train_dataset_arr[0])/ total_train_len, len(train_dataset_arr[1])/ total_train_len]
-        
-        train_dataset = interleave_datasets([train_dataset_arr[0], train_dataset_arr[1]], probabilities=train_probabilities, stopping_strategy="all_exhausted") #train_dataset_arr[0] + train_dataset_arr[1]
-
-        total_eval_len = len(eval_dataset_arr[0]) + len(eval_dataset_arr[1])
-        eval_probabilities = [len(eval_dataset_arr[0])/ total_eval_len, len(eval_dataset_arr[1])/ total_eval_len]
-
-        # eval_dataset = interleave_datasets([eval_dataset_arr[0], eval_dataset_arr[1]], probabilities=eval_probabilities, stopping_strategy="all_exhausted")
+      
 
         eval_dataset = {l: eval_dataset_arr[i] for i, l in enumerate(data_args.task_list)}
         print("\n\n\n******eval_dataset******\n\n",eval_dataset, "\n\n\n")
@@ -535,7 +534,7 @@ def main():
 
 
 
-    def compute_metrics(p: EvalPrediction):
+    def compute_metrics(p: EvalPrediction, task=None):
         preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
         preds = np.squeeze(preds) if is_regression else np.argmax(preds, axis=1)
         metric = load_metric("accuracy")
