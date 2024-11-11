@@ -17,4 +17,4 @@ module load python/3.10
 module load cuda/12.1
 module load openssl/3.1.5
 
-bash setup_qnli_qqp_50.sh
+bash sbatch_scripts/setup_qnli_qqp_50.sh
