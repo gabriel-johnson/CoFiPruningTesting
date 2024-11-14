@@ -199,8 +199,6 @@ def main():
     glue_token_list = {"additional_special_tokens": [f"<{task}>" for task in data_args.task_list]}
 
 
-    print(f"\n\n\nglue_token_list: {glue_token_list}")
-    return
 
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
