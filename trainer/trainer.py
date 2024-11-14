@@ -189,6 +189,7 @@ class CoFiTrainer(Trainer):
         total_dataloader_len = 0
 
         for i, train_dataset in enumerate(self.train_dataset):
+            print(f"appending this train datase?: {train_dataset[0]}")
             train_dataloader_arr.append(
                 DataLoader(
                                     train_dataset,
@@ -305,8 +306,12 @@ class CoFiTrainer(Trainer):
 
                 for train_dataloader_index, data_loader in enumerate(train_dataloader_arr):
                     inputs = next(iter(data_loader))
+                    # print(f"index: {train_dataloader_index}")
+                    # print(f"inputs: {inputs}")
+
                     # these indexes should be aligned...
                     self.teacher_model=teacher_model[train_dataloader_index]
+                    # print(f"teacher_model we just set?: {self.teacher_model.task}")
 
                     if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps: #! before pruning, run 12272 steps
                         self.start_prune = True
@@ -401,9 +406,10 @@ class CoFiTrainer(Trainer):
 
                     epoch_pbar.update(1)
 
+                    
+                    step += 1
                 if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
                     break
-                step += 1
 
             epoch_end = time.time()
             # wandb.log({'epoch':epoch})

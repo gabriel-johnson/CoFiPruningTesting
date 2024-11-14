@@ -199,6 +199,9 @@ def main():
     glue_token_list = {"additional_special_tokens": [f"<{task}>" for task in data_args.task_list]}
 
 
+    print(f"\n\n\nglue_token_list: {glue_token_list}")
+    return
+
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
@@ -306,8 +309,9 @@ def main():
         if data_args.task_list is not None:
             teacher_model = []
             for i, task in enumerate(data_args.task_list):
+                print(f"getting the following teaching model: {task_to_teacher_models[task]}")
                 teacher_model.append(
-                    Model.from_pretrained(task_to_teacher_models[task], config=deepcopy(config))
+                    Model.from_pretrained(task_to_teacher_models[task], config=deepcopy(config), task = task)
                 )
                 teacher_model[i].resize_token_embeddings(len(tokenizer))
                 teacher_model[i].eval()
@@ -317,7 +321,6 @@ def main():
                 config=deepcopy(config)
             )
             teacher_model.eval()
-
 
 
 
@@ -576,7 +579,7 @@ def main():
 
 
     logger.info(
-        f"************* {len(train_dataset)} Training Examples Loaded *************")
+        f"************* {len(train_dataset_arr)} Training Examples Loaded *************")
     logger.info(
         f"************* {len(eval_dataset)} Evaluation Examples Loaded *************")
 

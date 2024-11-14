@@ -48,6 +48,8 @@ class CoFiBertForSequenceClassification(BertForSequenceClassification):
 
         self.do_layer_distill = getattr(config, "do_layer_distill", False)
 
+        self.task = None
+
         self.task1_head = nn.Linear(config.hidden_size, 2)
         self.task2_head = nn.Linear(config.hidden_size, 2)
 
@@ -58,7 +60,7 @@ class CoFiBertForSequenceClassification(BertForSequenceClassification):
             self.layer_transformation = None
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path: Optional[Union[str, os.PathLike]], *model_args, **kwargs):
+    def from_pretrained(cls, pretrained_model_name_or_path: Optional[Union[str, os.PathLike]], *model_args, task=None, **kwargs):
         if os.path.exists(pretrained_model_name_or_path):
             weights = torch.load(os.path.join(pretrained_model_name_or_path, "pytorch_model.bin"), map_location=torch.device("cpu"))
         else:
@@ -66,7 +68,9 @@ class CoFiBertForSequenceClassification(BertForSequenceClassification):
             resolved_archive_file = cached_path(archive_file)
             weights = torch.load(resolved_archive_file, map_location="cpu")
 
-        
+        # if task is not None:
+        #     print(f"\n\n\n\n\n\n\nsetting task to: {task}\n\n\n\n\n\n\n\n")
+        #     cls.task = task
         # Convert old format to new format if needed from a PyTorch state_dict
         old_keys = []
         new_keys = []
@@ -89,6 +93,9 @@ class CoFiBertForSequenceClassification(BertForSequenceClassification):
             config = kwargs["config"]
         
         model = cls(config)
+    
+        if task is not None:
+            model.task = task
 
         load_pruned_model(model, weights)
         return model
