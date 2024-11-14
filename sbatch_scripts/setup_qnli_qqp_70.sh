@@ -1,7 +1,7 @@
 # !/bin/bash
 
 TASK=[QNLI,QQP]
-SUFFIX=qnli_qqp_70
+SUFFIX=2_qnli_qqp_70
 EX_CATE=CoFi
 PRUNING_TYPE=structured_heads+structured_mlp+hidden+layer
 SPARSITY=.70
