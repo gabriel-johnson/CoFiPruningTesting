@@ -387,7 +387,7 @@ def main():
         padding = False
 
     # Some models have set the order of the labels to use, so let's make sure we do use it.
-    label_to_id = label_to_id
+    # label_to_id = label_to_id
     
     
     if (

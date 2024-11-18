@@ -181,6 +181,9 @@ class CoFiTrainer(Trainer):
         
 
     def train(self):
+
+        self.prepruning_finetune_steps = self.prepruning_finetune_steps * len(self.train_dataset)
+
         if self.train_dataset is None:
             raise ValueError("Trainer: training requires a train_dataset.")
         # train_sampler = self._get_train_sampler()
@@ -189,7 +192,6 @@ class CoFiTrainer(Trainer):
         total_dataloader_len = 0
 
         for i, train_dataset in enumerate(self.train_dataset):
-            print(f"appending this train datase?: {train_dataset[0]}")
             train_dataloader_arr.append(
                 DataLoader(
                                     train_dataset,
@@ -201,9 +203,7 @@ class CoFiTrainer(Trainer):
                                     ))
             total_dataloader_len += len(train_dataloader_arr[i])
 
-        # figure out a better solution for this!!!    
-        num_update_steps_per_epoch = len(
-            train_dataloader_arr[0]) // self.args.gradient_accumulation_steps
+        num_update_steps_per_epoch = total_dataloader_len // self.args.gradient_accumulation_steps
         num_update_steps_per_epoch = max(num_update_steps_per_epoch, 1) #! 12272
 
         if self.l0_module is not None:
@@ -223,6 +223,9 @@ class CoFiTrainer(Trainer):
                                self.args.num_train_epochs)
             num_train_epochs = self.args.num_train_epochs
             self.args.max_steps = self.t_total
+
+        logger.info("************************************************************************")
+        logger.info(f"max_steps == {self.args.max_steps}")
 
         self.create_optimizer_and_scheduler(num_training_steps=self.t_total, build_l0_optimizer = self.start_prune)
 
@@ -294,7 +297,7 @@ class CoFiTrainer(Trainer):
             if self.args.past_index >= 0:
                 self._past = None
 
-            epoch_pbar = tqdm(epoch_iterator, desc="Iteration",
+            epoch_pbar = tqdm(range(total_dataloader_len), desc="Iteration",
                               disable=disable_tqdm)
             self.eval_counter.clear()
 
@@ -304,113 +307,110 @@ class CoFiTrainer(Trainer):
 
             while step < total_dataloader_len:
 
-                for train_dataloader_index, data_loader in enumerate(train_dataloader_arr):
-                    inputs = next(iter(data_loader))
-                    # print(f"index: {train_dataloader_index}")
-                    # print(f"inputs: {inputs}")
+                if(step == 0 or step % 2 == 0):
+                    inputs = next(iter(train_dataloader_arr[0]))
+                    self.teacher_model=teacher_model[0]
+                else:
+                    inputs = next(iter(train_dataloader_arr[1]))
+                    self.teacher_model = teacher_model[1]
 
-                    # these indexes should be aligned...
-                    self.teacher_model=teacher_model[train_dataloader_index]
-                    # print(f"teacher_model we just set?: {self.teacher_model.task}")
+                if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps: #! before pruning, run 12272 steps
+                    self.start_prune = True
 
-                    if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps: #! before pruning, run 12272 steps
-                        self.start_prune = True
+                    self.optimizer = None
+                    self.lr_scheduler = None
+                    lr_steps = self.t_total - self.global_step
 
-                        self.optimizer = None
-                        self.lr_scheduler = None
-                        lr_steps = self.t_total - self.global_step
+                    # reset the optimizer
+                    self.create_optimizer_and_scheduler(lr_steps, self.start_prune)
+                    logger.info("Starting l0 regularization!")
 
-                        # reset the optimizer
-                        self.create_optimizer_and_scheduler(lr_steps, self.start_prune)
-                        logger.info("Starting l0 regularization!")
+                if self.start_prune:
+                    zs = self.l0_module.forward(training=True) #! get the zs
+                    self.fill_inputs_with_zs(zs, inputs) #! use the zs
 
-                    if self.start_prune:
-                        zs = self.l0_module.forward(training=True) #! get the zs
-                        self.fill_inputs_with_zs(zs, inputs) #! use the zs
+                loss_terms = self.training_step(model, inputs)
+                tr_loss_step = loss_terms["loss"]
+                lag_loss_step = loss_terms["lagrangian_loss"]
 
-                    loss_terms = self.training_step(model, inputs)
-                    tr_loss_step = loss_terms["loss"]
-                    lag_loss_step = loss_terms["lagrangian_loss"]
+                tr_loss += tr_loss_step
+                lag_loss += lag_loss_step if lag_loss_step is not None else 0.0
 
-                    tr_loss += tr_loss_step
-                    lag_loss += lag_loss_step if lag_loss_step is not None else 0.0
+                self.total_flos += self.floating_point_ops(inputs)
 
-                    self.total_flos += self.floating_point_ops(inputs)
+                if (step + 1) % self.args.gradient_accumulation_steps == 0 or (
+                        total_dataloader_len <= self.args.gradient_accumulation_steps
+                        and (step + 1) == total_dataloader_len
+                ):
+                    torch.nn.utils.clip_grad_norm_(
+                        model.parameters(), self.args.max_grad_norm)
 
-                    if (step + 1) % self.args.gradient_accumulation_steps == 0 or (
-                            len(epoch_iterator) <= self.args.gradient_accumulation_steps
-                            and (step + 1) == len(epoch_iterator)
+                    self.optimizer.step()
+
+                    if self.l0_module is not None and self.l0_optimizer is not None:
+                        self.l0_optimizer.step()
+                        self.lagrangian_optimizer.step()
+
+                    if self.lr_scheduler is not None:
+                        self.lr_scheduler.step()
+
+                    if self.l0_module is not None:
+                        self.l0_module.constrain_parameters()
+
+                    model.zero_grad()
+                    if self.l0_module is not None:
+                        self.l0_module.zero_grad()
+                    self.optimizer.zero_grad()
+                    if self.l0_optimizer is not None:
+                        self.l0_optimizer.zero_grad()
+                    if self.lagrangian_optimizer is not None:
+                        self.lagrangian_optimizer.zero_grad()
+
+                    self.global_step += 1
+                    self.epoch = epoch + (step + 1) / total_dataloader_len
+
+                    if (self.args.logging_steps > 0 and self.global_step % self.args.logging_steps == 0) or (
+                            self.global_step == 1 and self.args.logging_first_step
                     ):
-                        torch.nn.utils.clip_grad_norm_(
-                            model.parameters(), self.args.max_grad_norm)
+                        logs: Dict[str, float] = {}
+                        tr_loss_scalar = tr_loss.item()
+                        reg_loss_scalar = reg_loss.item()
+                        lag_loss_scalar = lag_loss.item()
 
-                        self.optimizer.step()
+                        logs["loss"] = (
+                            tr_loss_scalar - logging_loss_scalar) / self.args.logging_steps
+                        logs["reg_loss"] = (
+                            reg_loss_scalar - logging_reg_loss_scalar) / self.args.logging_steps
+                        logs["lag_loss"] = (
+                            lag_loss_scalar - logging_lag_loss_scalar) / self.args.logging_steps
 
-                        if self.l0_module is not None and self.l0_optimizer is not None:
-                            self.l0_optimizer.step()
-                            self.lagrangian_optimizer.step()
-
+                        # backward compatibility for pytorch schedulers
                         if self.lr_scheduler is not None:
-                            self.lr_scheduler.step()
+                            lr = self.lr_scheduler.get_last_lr()[0] if version.parse(
+                                torch.__version__) >= version.parse("1.4") else self.lr_scheduler.get_lr()[0]
+                        else:
+                            lr = self.args.learning_rate
 
-                        if self.l0_module is not None:
-                            self.l0_module.constrain_parameters()
+                        logs["learning_rate"] = lr
+                        logging_loss_scalar = tr_loss_scalar
+                        logging_reg_loss_scalar = reg_loss_scalar
+                        logging_lag_loss_scalar = lag_loss_scalar
 
-                        model.zero_grad()
-                        if self.l0_module is not None:
-                            self.l0_module.zero_grad()
-                        self.optimizer.zero_grad()
-                        if self.l0_optimizer is not None:
-                            self.l0_optimizer.zero_grad()
-                        if self.lagrangian_optimizer is not None:
-                            self.lagrangian_optimizer.zero_grad()
+                        self.log(logs)
 
-                        self.global_step += 1
-                        self.epoch = epoch + (step + 1) / len(epoch_iterator)
+                    if self.global_step % self.args.eval_steps == 0:
+                        if(isinstance(self.model.config.finetuning_task, list)):
+                            self.evaluate_multiple()
 
-                        if (self.args.logging_steps > 0 and self.global_step % self.args.logging_steps == 0) or (
-                                self.global_step == 1 and self.args.logging_first_step
-                        ):
-                            logs: Dict[str, float] = {}
-                            tr_loss_scalar = tr_loss.item()
-                            reg_loss_scalar = reg_loss.item()
-                            lag_loss_scalar = lag_loss.item()
+                        else:
+                            self.evaluate()
 
-                            logs["loss"] = (
-                                tr_loss_scalar - logging_loss_scalar) / self.args.logging_steps
-                            logs["reg_loss"] = (
-                                reg_loss_scalar - logging_reg_loss_scalar) / self.args.logging_steps
-                            logs["lag_loss"] = (
-                                lag_loss_scalar - logging_lag_loss_scalar) / self.args.logging_steps
+                epoch_pbar.update(1)
 
-                            # backward compatibility for pytorch schedulers
-                            if self.lr_scheduler is not None:
-                                lr = self.lr_scheduler.get_last_lr()[0] if version.parse(
-                                    torch.__version__) >= version.parse("1.4") else self.lr_scheduler.get_lr()[0]
-                            else:
-                                lr = self.args.learning_rate
-
-                            logs["learning_rate"] = lr
-                            logging_loss_scalar = tr_loss_scalar
-                            logging_reg_loss_scalar = reg_loss_scalar
-                            logging_lag_loss_scalar = lag_loss_scalar
-
-                            self.log(logs)
-
-                        if self.global_step % self.args.eval_steps == 0:
-                            if(isinstance(self.model.config.finetuning_task, list)):
-                                self.evaluate_multiple()
-
-                            else:
-                                self.evaluate()
-
-                    epoch_pbar.update(1)
-
-                    
-                    step += 1
                 if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
+                    logger.info("max steps")
                     break
-
+                step += 1
             epoch_end = time.time()
             # wandb.log({'epoch':epoch})
             logger.info(
@@ -420,6 +420,7 @@ class CoFiTrainer(Trainer):
             train_pbar.update(1)
 
             if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
+                logger.info("max steps")
                 break
 
         train_pbar.close()
