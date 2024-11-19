@@ -1,8 +1,7 @@
 # !/bin/bash
 
-
-TASK=[QNLI,QQP]
-SUFFIX=2_qnli_qqp_50
+TASK=[MRPC,QQP]
+SUFFIX=sparsity_50
 EX_CATE=CoFi
 PRUNING_TYPE=structured_heads+structured_mlp+hidden+layer
 SPARSITY=.50
