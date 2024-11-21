@@ -2,8 +2,8 @@
 #SBATCH -J QNLI_MRPC_TESTING_50                                               
 #SBATCH -A eecs   
 #SBATCH -p dgxh                                                           
-#SBATCH -o out/qnli_mrpc_50_out                            
-#SBATCH -e out/qnli_mrpc_50_err                            
+#SBATCH -o out/longer_finetune_qnli_mrpc_50_out                            
+#SBATCH -e out/longer_finetune_qnli_mrpc_50_err                            
 
 #SBATCH --time=2-00:00:00                 
 #SBATCH --gres=gpu:1                         
