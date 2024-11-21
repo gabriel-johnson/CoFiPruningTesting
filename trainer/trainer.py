@@ -182,7 +182,7 @@ class CoFiTrainer(Trainer):
 
     def train(self):
 
-        self.prepruning_finetune_steps = self.prepruning_finetune_steps * len(self.train_dataset)
+        self.prepruning_finetune_steps = self.prepruning_finetune_steps * 10 #len(self.train_dataset)
 
         if self.train_dataset is None:
             raise ValueError("Trainer: training requires a train_dataset.")
