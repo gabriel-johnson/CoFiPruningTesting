@@ -33,6 +33,8 @@ def map_labels(task, dataset, label_count):
     
         elif task == "qnli":
             example['question'] = "<" + task + "> " + example["question"]
+            example['sentence'] = "<" + task + "> " + example["sentence"]
+
         
         elif task == "sst2":
             example["sentence"] = "<" + task + "> " + example["sentence"]

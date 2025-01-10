@@ -17,7 +17,7 @@ from transformers import (HfArgumentParser, TrainingArguments, PretrainedConfig,
 from args import AdditionalArguments, DataTrainingArguments
 from utils.cofi_utils import *
 from models.l0_module import L0Module
-from models.modeling_bert import CoFiBertForSequenceClassification
+from models.modeling_bert import CoFiBertForSequenceClassification, CoFiTeacherBertForSequenceClassification
 from models.modeling_roberta import CoFiRobertaForSequenceClassification
 from trainer.trainer import CoFiTrainer 
 from utils.utils import *
@@ -301,18 +301,20 @@ def main():
         config.output_hidden_states = True
 
     
-
-
+    
+    # return
+    TeacherModel = CoFiTeacherBertForSequenceClassification
     if additional_args.do_distill:
         if data_args.task_list is not None:
             teacher_model = []
             for i, task in enumerate(data_args.task_list):
                 print(f"getting the following teaching model: {task_to_teacher_models[task]}")
                 teacher_model.append(
-                    Model.from_pretrained(task_to_teacher_models[task], config=deepcopy(config), task = task)
+                    TeacherModel.from_pretrained(task_to_teacher_models[task], config=deepcopy(config), task = task)
                 )
                 teacher_model[i].resize_token_embeddings(len(tokenizer))
                 teacher_model[i].eval()
+
         else:
             teacher_model = Model.from_pretrained(
                 additional_args.distillation_path,
@@ -323,17 +325,24 @@ def main():
 
 
     model = Model.from_pretrained(
-        model_args.model_name_or_path,
-        tokenizer,
-        from_tf=bool(".ckpt" in model_args.model_name_or_path),
-        config=config,
-        cache_dir=model_args.cache_dir,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-        
-    ) #! inside the function, we get the original struct  #! CofiBertForSequenceClassification
+            model_args.model_name_or_path,
+            tokenizer,
+            from_tf=bool(".ckpt" in model_args.model_name_or_path),
+            config=config,
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+            
+        ) #! inside the function, we get the original struct  #! CofiBertForSequenceClassification
 
     model.resize_token_embeddings(len(tokenizer))
+
+    model.task1_classifier.weight.data = teacher_model[0].classifier.weight.data.clone()
+    model.task1_classifier.bias.data = teacher_model[0].classifier.bias.data.clone()
+    model.task2_classifier.weight.data = teacher_model[1].classifier.weight.data.clone()
+    model.task2_classifier.bias.data = teacher_model[1].classifier.bias.data.clone()
+    model.task3_classifier.weight.data = teacher_model[2].classifier.weight.data.clone()
+    model.task3_classifier.bias.data = teacher_model[2].classifier.bias.data.clone()
 
 
     # initialize the layer transformation matrix to be an identity matrix
@@ -533,6 +542,7 @@ def main():
     # You can define your custom compute_metrics function. It takes an `EvalPrediction` object (a namedtuple with a
     # predictions and label_ids field) and has to return a dictionary string to float.
 
+    # print(f"grad: {model.classifier.weight.grad}")
 
 
     def compute_metrics(p: EvalPrediction, task=None):
@@ -575,7 +585,7 @@ def main():
 # Apply the new feature schema to both datasets
     
 
-
+    # return
     logger.info(
         f"************* {len(train_dataset_arr)} Training Examples Loaded *************")
     logger.info(
@@ -584,7 +594,10 @@ def main():
     model.resize_token_embeddings(len(tokenizer))
     # teacher_model.resize_token_embeddings(len(tokenizer))
 
-    
+    torch.set_printoptions(threshold=torch.inf)
+
+
+
 
 
     trainer = CoFiTrainer(
@@ -600,10 +613,37 @@ def main():
         teacher_model=teacher_model
     )
 
+    
+    # for param in model.parameters():
+    #     # if name == "task1_head" or name == "task2_head" or name == "task3_head":
+    #     #     continue
+    #     param.requires_grad = False
+
+    # for name, param in model.named_parameters():
+    #     if "classifier" not in name:  # 'classifier' refers to the output layers
+    #         param.requires_grad = False
+
+    # # Verify that requires_grad is only True for the output layers
+    # for name, param in model.named_parameters():
+    #     print(name, param.requires_grad)
         
-            
+    # for name, param in model.named_parameters():
+    #     if name == "task1_head" or name == "task2_head" or name == "task3_head":
+    #         print("making task1head require grad!")
+    #         param.requires_grad = True
+        # print(f"Name: {name}")
+        # print(f"Parameter: {param}")
+        # print(f"Parameter shape: {param.shape}")
+    #     # print("-" * 50)
+    # model.task1_head.requires_grad = True
+    # model.task2_head.requires_grad = True
+    # model.task3_head.requires_grad = True
+    # print(f"task1 weights: {model.task1_head.weight}")
+    # print(f"task2 weights: {model.task2_head.weight}")
+    # print(f"task3 weights: {model.task3_head.weight}")
+    # print(f"\n\n\ntask1 req grad: {model.task1_head.requires_grad}\n\n\n")
 
-
+    # return
     if training_args.do_train:
 
         # trainer.prelim_train(combined_raw_datasets)

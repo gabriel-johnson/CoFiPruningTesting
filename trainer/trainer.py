@@ -128,16 +128,26 @@ class CoFiTrainer(Trainer):
 
             main_model_params = [
                 {
-                    "params": [p for n, p in self.model.named_parameters() if not any(nd in n for nd in no_decay) and not any(fk in n for fk in freeze_keywords)],
+                    "params": [p for n, p in self.model.named_parameters() if not any(nd in n for nd in no_decay) and not any(fk in n for fk in freeze_keywords) and p.requires_grad == True],
                     "weight_decay": self.args.weight_decay,
                     "lr": self.args.learning_rate
                 },
-                {
-                    "params": [p for n, p in self.model.named_parameters() if any(nd in n for nd in no_decay) and not any(fk in n for fk in freeze_keywords)],
-                    "weight_decay": 0.0,
-                    "lr": self.args.learning_rate
-                },
+                # {
+                #     "params": [p for n, p in self.model.named_parameters() if any(nd in n for nd in no_decay) and not any(fk in n for fk in freeze_keywords)],
+                #     "weight_decay": 0.0,
+                #     "lr": self.args.learning_rate
+                # },
             ]
+
+            # print(f"\nmain_model_params: {main_model_params}\n")
+            # for name, param in self.model.named_parameters():
+            #     print(f"Name: {name}")
+            #     print(f"Parameter: {param}")
+            #     print(f"Parameter shape: {param.shape}")
+            #     print("-" * 50)
+
+            # print(f"model: {self.model}")
+            # print(f"grad?: {self.model.classifier.weight.grad}")
             log_params(main_model_params, "main params")
             self.optimizer = AdamW(
                 main_model_params,
@@ -305,14 +315,23 @@ class CoFiTrainer(Trainer):
 
             task = None
 
+            count = 0
+
             while step < total_dataloader_len:
 
-                if(step == 0 or step % 2 == 0):
-                    inputs = next(iter(train_dataloader_arr[0]))
-                    self.teacher_model=teacher_model[0]
-                else:
-                    inputs = next(iter(train_dataloader_arr[1]))
-                    self.teacher_model = teacher_model[1]
+                # if(step != 0 and step % 2 == 0):
+                count += 1
+
+                if(count == 3):
+                    count = 0
+
+                    
+                inputs = next(iter(train_dataloader_arr[count]))
+
+                # print(f"inputs: {inputs}")
+                self.teacher_model=teacher_model[count]
+
+                # self.start_prune = False
 
                 if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps: #! before pruning, run 12272 steps
                     self.start_prune = True
@@ -330,6 +349,10 @@ class CoFiTrainer(Trainer):
                     self.fill_inputs_with_zs(zs, inputs) #! use the zs
 
                 loss_terms = self.training_step(model, inputs)
+                # print(f"inputs:{inputs}")
+                # print("\n\n")
+                # print(f"loss_terms: {loss_terms}")
+
                 tr_loss_step = loss_terms["loss"]
                 lag_loss_step = loss_terms["lagrangian_loss"]
 
@@ -344,8 +367,12 @@ class CoFiTrainer(Trainer):
                 ):
                     torch.nn.utils.clip_grad_norm_(
                         model.parameters(), self.args.max_grad_norm)
-
+                    # if step % 500 == 0:
+                    # print(f"main_model_params before: {self.optimizer.param_groups}")
                     self.optimizer.step()
+                    # if step % 500 == 0:
+                    # print(f"main_model_params after: {self.optimizer.param_groups}")
+
 
                     if self.l0_module is not None and self.l0_optimizer is not None:
                         self.l0_optimizer.step()
@@ -406,7 +433,7 @@ class CoFiTrainer(Trainer):
                             self.evaluate()
 
                 epoch_pbar.update(1)
-
+                
                 if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
                     logger.info("max steps")
                     break
@@ -418,6 +445,7 @@ class CoFiTrainer(Trainer):
 
             epoch_pbar.close()
             train_pbar.update(1)
+            
 
             if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
                 logger.info("max steps")
@@ -550,9 +578,29 @@ class CoFiTrainer(Trainer):
         return PredictionOutput(predictions=all_preds, label_ids=all_labels, metrics=metrics)
 
     def evaluate_multiple(self, eval_dataset: Optional[Dataset] = None) -> Tuple[Dict[str, float], List]:
+        
+
         task_list = self.model.config.finetuning_task
         teach_model = self.teacher_model
         eval_dataset = self.eval_dataset
+
+        # for param in teach_model[0].parameters():
+        #     print(f"\nparam: {param}")
+        #     print(param.data)
+        # print(f"\nMODEL WEIGHTS: {teach_model[0].layername.weight.shape}")
+        # print("\n")
+
+        # for name, param in teach_model[0].named_parameters():
+        #     if param.requires_grad:
+        #         print(f"Layer: {name}")
+        #         print(param.data)
+
+        torch.set_printoptions(threshold=torch.inf)
+
+# Print classifier weights
+        # print(self.model.classifier.weight)
+
+        # print("\n")
         for i, task in enumerate(task_list):
             self.model.config.finetuning_task = task
             self.eval_dataset = eval_dataset[task]
@@ -758,6 +806,10 @@ class CoFiTrainer(Trainer):
             zs = {key: inputs[key] for key in inputs if "_z" in key} #! extract the zs
             distill_loss, distill_ce_loss, loss = self.calculate_distillation_loss(
                 teacher_outputs, student_outputs, zs)
+
+            # print(f"STUDENT_OUTPUTS: {student_outputs}")
+            # print(f"TEACHER_OUTPUTS: {student_outputs}")
+
         else:
             loss = self.compute_loss(model, inputs)
 
@@ -771,8 +823,11 @@ class CoFiTrainer(Trainer):
         if self.args.gradient_accumulation_steps > 1:
             loss = loss / self.args.gradient_accumulation_steps
 
+    
         loss.backward()
-        
+        # print(f"\nmodel task: {model.task1_head.weight.grad}")        
+        # print(f"\nmodel task: {model.task2_head.weight.grad}")        
+
         # wandb.log({"loss": loss.detach(),
         #         "lagrangian_loss": lagrangian_loss.detach() if lagrangian_loss is not None else None,
         #         "distill_layer_loss": distill_loss.detach() if distill_loss is not None else None,
