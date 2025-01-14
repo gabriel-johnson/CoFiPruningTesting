@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH -J QNLI_MRPC_QQP_TESTING_50                                               
 #SBATCH -A eecs   
-#SBATCH -p dgxh,dgx2                                                           
+#SBATCH -p dgx2                                                           
 #SBATCH -o out/qnli_mrpc_qqp_50_out                            
 #SBATCH -e out/qnli_mrpc_qqp_50_err                            
 
-#SBATCH --time=2-00:00:00                 
+#SBATCH --time=7-00:00:00                 
 #SBATCH --gres=gpu:1                         
 #SBATCH --mem=128G                          
 
