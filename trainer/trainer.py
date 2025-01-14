@@ -316,14 +316,25 @@ class CoFiTrainer(Trainer):
             task = None
 
             count = 0
+            # samping method from https://github.com/AsaCooperStickland/Bert-n-Pals/blob/master/run_multi_task.py
+            probs = [len(self.train_dataset[0]), len(self.train_dataset[1]), len(self.train_dataset[2])]
 
+            print(f"probs = {probs}\n")
             while step < total_dataloader_len:
 
                 # if(step != 0 and step % 2 == 0):
-                count += 1
+                # count += 1
 
-                if(count == 3):
-                    count = 0
+                # if(count == 3):
+                #     count = 0
+                # samping method from https://github.com/AsaCooperStickland/Bert-n-Pals/blob/master/run_multi_task.py
+                alpha = 1. - 0.8 * epoch / (20 - 1)
+                probs = [p**alpha for p in probs]
+                tot = sum(probs)
+                probs = [p/tot for p in probs]
+
+                count = np.random.choice(3, p=probs)
+
 
                     
                 inputs = next(iter(train_dataloader_arr[count]))
