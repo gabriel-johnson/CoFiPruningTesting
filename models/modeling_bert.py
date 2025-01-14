@@ -161,7 +161,7 @@ class CoFiBertForSequenceClassification(BertPreTrainedModel):
 
         task1Logits = self.task1_classifier(pooled_output)
         task2Logits = self.task2_classifier(pooled_output)
-        task3Logits = self.task2_classifier(pooled_output)
+        task3Logits = self.task3_classifier(pooled_output)
 
 
         logits = torch.zeros_like(task1Logits)  
