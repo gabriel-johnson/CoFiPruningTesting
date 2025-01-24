@@ -57,7 +57,9 @@ class CoFiBertForSequenceClassification(BertPreTrainedModel):
 
         self.task1_classifier = nn.Linear(config.hidden_size, 2)
         self.task2_classifier = nn.Linear(config.hidden_size, 2)
-        self.task3_classifier = nn.Linear(config.hidden_size, 2)
+        # self.task3_classifier = nn.Linear(config.hidden_size, 2)
+        # self.task4_classifier = nn.Linear(config.hidden_size, 2)
+
 
         # self.bert = BertModel(config)
 
@@ -161,7 +163,9 @@ class CoFiBertForSequenceClassification(BertPreTrainedModel):
 
         task1Logits = self.task1_classifier(pooled_output)
         task2Logits = self.task2_classifier(pooled_output)
-        task3Logits = self.task3_classifier(pooled_output)
+        # task3Logits = self.task3_classifier(pooled_output)
+        # task4Logits = self.task4_classifier(pooled_output)
+        
 
 
         logits = torch.zeros_like(task1Logits)  
@@ -170,8 +174,11 @@ class CoFiBertForSequenceClassification(BertPreTrainedModel):
                 logits[i] = task1Logits[i]
             elif input_ids[i][1].item() == 30523:
                 logits[i] = task2Logits[i]
-            elif input_ids[i][1].item() == 30524:
-                logits[i] == task3Logits[i]
+            # elif input_ids[i][1].item() == 30524:
+            #     logits[i] == task3Logits[i]
+            # elif input_ids[i][1].item() == 30525:
+            #     logits[i] == task3Logits[i]
+
 
         
         # if(input_ids[0][1].item() == 30522):

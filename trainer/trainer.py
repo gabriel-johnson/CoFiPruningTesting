@@ -128,7 +128,7 @@ class CoFiTrainer(Trainer):
 
             main_model_params = [
                 {
-                    "params": [p for n, p in self.model.named_parameters() if not any(nd in n for nd in no_decay) and not any(fk in n for fk in freeze_keywords) and p.requires_grad == True],
+                    "params": [p for n, p in self.model.named_parameters() if not any(nd in n for nd in no_decay) and not any(fk in n for fk in freeze_keywords)],
                     "weight_decay": self.args.weight_decay,
                     "lr": self.args.learning_rate
                 },
@@ -140,11 +140,6 @@ class CoFiTrainer(Trainer):
             ]
 
             # print(f"\nmain_model_params: {main_model_params}\n")
-            # for name, param in self.model.named_parameters():
-            #     print(f"Name: {name}")
-            #     print(f"Parameter: {param}")
-            #     print(f"Parameter shape: {param.shape}")
-            #     print("-" * 50)
 
             # print(f"model: {self.model}")
             # print(f"grad?: {self.model.classifier.weight.grad}")
@@ -294,6 +289,8 @@ class CoFiTrainer(Trainer):
 
         else:
             self.evaluate()
+
+        dist = [0,0,0]
         # training
         for epoch in range(epochs_trained, int(np.ceil(num_train_epochs))): #! 20 epoch
             epoch_start = time.time()
@@ -310,14 +307,19 @@ class CoFiTrainer(Trainer):
             epoch_pbar = tqdm(range(total_dataloader_len), desc="Iteration",
                               disable=disable_tqdm)
             self.eval_counter.clear()
-
+            
             step = 0
+
+            if epoch == 1:
+                for param in model.parameters():
+                    param.requires_grad = True
+       
 
             task = None
 
             count = 0
             # samping method from https://github.com/AsaCooperStickland/Bert-n-Pals/blob/master/run_multi_task.py
-            probs = [len(self.train_dataset[0]), len(self.train_dataset[1]), len(self.train_dataset[2])]
+            probs = [len(self.train_dataset[0]), len(self.train_dataset[1])]#, len(self.train_dataset[2])]#, len(self.train_dataset[3])]
 
             print(f"probs = {probs}\n")
             while step < total_dataloader_len:
@@ -333,8 +335,8 @@ class CoFiTrainer(Trainer):
                 tot = sum(probs)
                 probs = [p/tot for p in probs]
 
-                count = np.random.choice(3, p=probs)
-
+                count = np.random.choice(2, p=probs)
+                # dist[count] += 1
 
                     
                 inputs = next(iter(train_dataloader_arr[count]))
@@ -834,7 +836,6 @@ class CoFiTrainer(Trainer):
         if self.args.gradient_accumulation_steps > 1:
             loss = loss / self.args.gradient_accumulation_steps
 
-    
         loss.backward()
         # print(f"\nmodel task: {model.task1_head.weight.grad}")        
         # print(f"\nmodel task: {model.task2_head.weight.grad}")        

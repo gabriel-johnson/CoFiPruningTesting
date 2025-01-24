@@ -338,11 +338,16 @@ def main():
     model.resize_token_embeddings(len(tokenizer))
 
     model.task1_classifier.weight.data = teacher_model[0].classifier.weight.data.clone()
-    model.task1_classifier.bias.data = teacher_model[0].classifier.bias.data.clone()
+    # model.task1_classifier.bias.data = teacher_model[0].classifier.bias.data.clone()
+    
     model.task2_classifier.weight.data = teacher_model[1].classifier.weight.data.clone()
-    model.task2_classifier.bias.data = teacher_model[1].classifier.bias.data.clone()
-    model.task3_classifier.weight.data = teacher_model[2].classifier.weight.data.clone()
-    model.task3_classifier.bias.data = teacher_model[2].classifier.bias.data.clone()
+    # model.task2_classifier.bias.data = teacher_model[1].classifier.bias.data.clone()
+    
+    # model.task3_classifier.weight.data = teacher_model[2].classifier.weight.data.clone()
+    # model.task3_classifier.bias.data = teacher_model[2].classifier.bias.data.clone()
+
+    # model.task4_classifier.weight.data = teacher_model[3].classifier.weight.data.clone()
+    # model.task4_classifier.bias.data = teacher_model[3].classifier.bias.data.clone()
 
 
     # initialize the layer transformation matrix to be an identity matrix
@@ -430,6 +435,20 @@ def main():
             f"model ({tokenizer.model_max_length}). Using max_seq_length={tokenizer.model_max_length}."
         )
     max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
+
+
+    for param in model.parameters():
+        param.requires_grad = False
+       
+    for name, param in model.named_parameters():
+        if("classifier" in name):
+            param.requires_grad = True
+
+    # for name, param in model.named_parameters():
+    #     print(f"Name: {name}")
+    #     print(f"Parameter: {param}")
+    #     print(f"Parameter shape: {param.shape}")
+    #     print("-" * 50)
 
     def preprocess_function(examples):
         # Tokenize the texts
@@ -594,7 +613,7 @@ def main():
     model.resize_token_embeddings(len(tokenizer))
     # teacher_model.resize_token_embeddings(len(tokenizer))
 
-    torch.set_printoptions(threshold=torch.inf)
+    # torch.set_printoptions(threshold=torch.inf)
 
 
 
@@ -619,9 +638,7 @@ def main():
     #     #     continue
     #     param.requires_grad = False
 
-    # for name, param in model.named_parameters():
-    #     if "classifier" not in name:  # 'classifier' refers to the output layers
-    #         param.requires_grad = False
+    
 
     # # Verify that requires_grad is only True for the output layers
     # for name, param in model.named_parameters():
