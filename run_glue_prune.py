@@ -195,7 +195,6 @@ def main():
     Model = CoFiBertForSequenceClassification if model_args.model_name_or_path.startswith(
         "bert") else CoFiRobertaForSequenceClassification
 
-
     glue_token_list = {"additional_special_tokens": [f"<{task}>" for task in data_args.task_list]}
 
 
@@ -337,17 +336,11 @@ def main():
 
     model.resize_token_embeddings(len(tokenizer))
 
-    model.task1_classifier.weight.data = teacher_model[0].classifier.weight.data.clone()
-    # model.task1_classifier.bias.data = teacher_model[0].classifier.bias.data.clone()
-    
-    model.task2_classifier.weight.data = teacher_model[1].classifier.weight.data.clone()
-    # model.task2_classifier.bias.data = teacher_model[1].classifier.bias.data.clone()
-    
-    # model.task3_classifier.weight.data = teacher_model[2].classifier.weight.data.clone()
-    # model.task3_classifier.bias.data = teacher_model[2].classifier.bias.data.clone()
 
-    # model.task4_classifier.weight.data = teacher_model[3].classifier.weight.data.clone()
-    # model.task4_classifier.bias.data = teacher_model[3].classifier.bias.data.clone()
+    for i, teacher in enumerate(teacher_model):
+        task_name = f"task{i + 1}_classifier"
+        getattr(model, task_name).weight.data = teacher.classifier.weight.data.clone()
+        getattr(model, task_name).bias.data = teacher.classifier.bias.data.clone()
 
 
     # initialize the layer transformation matrix to be an identity matrix
@@ -437,12 +430,14 @@ def main():
     max_seq_length = min(data_args.max_seq_length, tokenizer.model_max_length)
 
 
-    for param in model.parameters():
-        param.requires_grad = False
-       
     for name, param in model.named_parameters():
         if("classifier" in name):
             param.requires_grad = True
+            continue
+        param.requires_grad = False
+    # for param in model.parameters():
+    #     param.requires_grad = False
+       
 
     # for name, param in model.named_parameters():
     #     print(f"Name: {name}")
@@ -614,7 +609,6 @@ def main():
     # teacher_model.resize_token_embeddings(len(tokenizer))
 
     # torch.set_printoptions(threshold=torch.inf)
-
 
 
 

@@ -61,20 +61,6 @@ class CoFiBertForSequenceClassification(BertPreTrainedModel):
         # self.task4_classifier = nn.Linear(config.hidden_size, 2)
 
 
-        # self.bert = BertModel(config)
-
-        # bert_model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=2)
-        # default_weights = bert_model.classifier.weight.data.clone()
-        # default_bias = bert_model.classifier.bias.data.clone()
-
-
-        # self.task1_classifier.weight.data = default_weights
-        # self.task1_classifier.bias.data = default_bias
-        # self.task2_classifier.weight.data = default_weights
-        # self.task2_classifier.bias.data = default_bias
-        # self.task3_classifier.weight.data = default_weights
-        # self.task3_classifier.bias.data = default_bias
-
         self.post_init()
         if self.do_layer_distill:
             self.layer_transformation = nn.Linear(

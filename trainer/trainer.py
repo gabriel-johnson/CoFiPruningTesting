@@ -290,7 +290,6 @@ class CoFiTrainer(Trainer):
         else:
             self.evaluate()
 
-        dist = [0,0,0]
         # training
         for epoch in range(epochs_trained, int(np.ceil(num_train_epochs))): #! 20 epoch
             epoch_start = time.time()
@@ -313,30 +312,27 @@ class CoFiTrainer(Trainer):
             if epoch == 1:
                 for param in model.parameters():
                     param.requires_grad = True
-       
+            
 
             task = None
 
             count = 0
             # samping method from https://github.com/AsaCooperStickland/Bert-n-Pals/blob/master/run_multi_task.py
-            probs = [len(self.train_dataset[0]), len(self.train_dataset[1])]#, len(self.train_dataset[2])]#, len(self.train_dataset[3])]
+            probs = [len(t) for t in self.train_dataset]#, len(self.train_dataset[3])]
 
             print(f"probs = {probs}\n")
+
+            
+
+
             while step < total_dataloader_len:
-
-                # if(step != 0 and step % 2 == 0):
-                # count += 1
-
-                # if(count == 3):
-                #     count = 0
                 # samping method from https://github.com/AsaCooperStickland/Bert-n-Pals/blob/master/run_multi_task.py
                 alpha = 1. - 0.8 * epoch / (20 - 1)
                 probs = [p**alpha for p in probs]
                 tot = sum(probs)
                 probs = [p/tot for p in probs]
 
-                count = np.random.choice(2, p=probs)
-                # dist[count] += 1
+                count = np.random.choice(len(self.train_dataset), p=probs)
 
                     
                 inputs = next(iter(train_dataloader_arr[count]))
@@ -820,11 +816,9 @@ class CoFiTrainer(Trainer):
             distill_loss, distill_ce_loss, loss = self.calculate_distillation_loss(
                 teacher_outputs, student_outputs, zs)
 
-            # print(f"STUDENT_OUTPUTS: {student_outputs}")
-            # print(f"TEACHER_OUTPUTS: {student_outputs}")
-
         else:
             loss = self.compute_loss(model, inputs)
+
 
         lagrangian_loss = None
         if self.start_prune:
@@ -836,14 +830,8 @@ class CoFiTrainer(Trainer):
         if self.args.gradient_accumulation_steps > 1:
             loss = loss / self.args.gradient_accumulation_steps
 
-        loss.backward()
-        # print(f"\nmodel task: {model.task1_head.weight.grad}")        
-        # print(f"\nmodel task: {model.task2_head.weight.grad}")        
 
-        # wandb.log({"loss": loss.detach(),
-        #         "lagrangian_loss": lagrangian_loss.detach() if lagrangian_loss is not None else None,
-        #         "distill_layer_loss": distill_loss.detach() if distill_loss is not None else None,
-        #         "distill_ce_loss": distill_ce_loss.detach() if distill_ce_loss is not None else None})
+        loss.backward()
         
         return {"loss": loss.detach(),
                 "lagrangian_loss": lagrangian_loss.detach() if lagrangian_loss is not None else None,
