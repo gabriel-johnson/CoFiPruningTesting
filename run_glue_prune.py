@@ -431,13 +431,17 @@ def main():
 
 
     for name, param in model.named_parameters():
+        if("embeddings" in name):
+            param.requres_grad = True
+            continue
         if("classifier" in name):
             param.requires_grad = True
             continue
         param.requires_grad = False
     # for param in model.parameters():
     #     param.requires_grad = False
-       
+    
+    # return
 
     # for name, param in model.named_parameters():
     #     print(f"Name: {name}")
