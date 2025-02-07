@@ -155,16 +155,17 @@ class CoFiBertForSequenceClassification(BertPreTrainedModel):
 
 
         logits = torch.zeros_like(task1Logits)  
-        for i, input in enumerate(input_ids):
-            if input_ids[i][1].item() == 30522:
-                logits[i] = task1Logits[i]
-            elif input_ids[i][1].item() == 30523:
-                logits[i] = task2Logits[i]
-            elif input_ids[i][1].item() == 30524:
-                logits[i] == task3Logits[i]
-            elif input_ids[i][1].item() == 30525:
-                logits[i] == task3Logits[i]
-      
+        if input_ids[0][1].item() == 30522:
+            logits = task1Logits
+        elif input_ids[0][1].item() == 30523:
+            logits = task2Logits
+        elif input_ids[0][1].item() == 30524:
+            logits = task3Logits
+                # if(self.training):print("\n\nthird output head!!!!\n\n")
+            # elif input_ids[i][1].item() == 30525:
+            #     logits[i] = task4Logits[i]
+
+       
 
         loss = None
         if labels is not None:

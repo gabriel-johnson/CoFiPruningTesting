@@ -284,11 +284,15 @@ class CoFiTrainer(Trainer):
         
         teacher_model = self.teacher_model
 
+        loss_arr = [0 for t in self.train_dataset]
+        eval_scale_factor = 1
+
         if(isinstance(self.model.config.finetuning_task, list)):
-            self.evaluate_multiple()
+            self.evaluate_multiple(loss_arr)
 
         else:
             self.evaluate()
+
 
         # training
         for epoch in range(epochs_trained, int(np.ceil(num_train_epochs))): #! 20 epoch
@@ -318,22 +322,34 @@ class CoFiTrainer(Trainer):
 
             count = 0
             # samping method from https://github.com/AsaCooperStickland/Bert-n-Pals/blob/master/run_multi_task.py
-            probs = [len(t) for t in self.train_dataset]#, len(self.train_dataset[3])]
-
-            print(f"probs = {probs}\n")
 
             
 
+            if epoch == 2:
+                self.args.eval_steps = self.args.eval_steps * len(self.train_dataset)
 
             while step < total_dataloader_len:
-                # samping method from https://github.com/AsaCooperStickland/Bert-n-Pals/blob/master/run_multi_task.py
+
+
+                if step == 5000:
+                    eval_scale_factor = len(self.train_dataset)
+                    for param in model.parameters():
+                        param.requires_grad = True
+
+                probs = [(math.sqrt(len(t)) * loss_arr[i]) for i, t in enumerate(self.train_dataset)]#, len(self.train_dataset[3])]
+                # probs = [1 - l for l in loss_arr]
                 alpha = 1. - 0.8 * epoch / (20 - 1)
                 probs = [p**alpha for p in probs]
                 tot = sum(probs)
                 probs = [p/tot for p in probs]
-
+                # samping method from https://github.com/AsaCooperStickland/Bert-n-Pals/blob/master/run_multi_task.py
+                
                 count = np.random.choice(len(self.train_dataset), p=probs)
+                # if(step % 10 == 0):
+                #     print(f"count: {count}")
 
+                # if(step % 100 == 0):
+                #     print(f"probs: {probs}")
                     
                 inputs = next(iter(train_dataloader_arr[count]))
 
@@ -434,9 +450,9 @@ class CoFiTrainer(Trainer):
 
                         self.log(logs)
 
-                    if self.global_step % self.args.eval_steps == 0:
+                    if self.global_step % (self.args.eval_steps * eval_scale_factor) == 0:
                         if(isinstance(self.model.config.finetuning_task, list)):
-                            self.evaluate_multiple()
+                            self.evaluate_multiple(loss_arr)
 
                         else:
                             self.evaluate()
@@ -586,7 +602,7 @@ class CoFiTrainer(Trainer):
 
         return PredictionOutput(predictions=all_preds, label_ids=all_labels, metrics=metrics)
 
-    def evaluate_multiple(self, eval_dataset: Optional[Dataset] = None) -> Tuple[Dict[str, float], List]:
+    def evaluate_multiple(self, loss_arr, eval_dataset: Optional[Dataset] = None) -> Tuple[Dict[str, float], List]:
         
 
         task_list = self.model.config.finetuning_task
@@ -615,7 +631,12 @@ class CoFiTrainer(Trainer):
             self.eval_dataset = eval_dataset[task]
             if type(self.teacher_model) is list: 
                 self.teacher_model = teach_model[i]
-            self.evaluate()
+            
+            loss_arr[i] = self.evaluate()
+            # print(f"\n\n\n\n\n***********************************\nself.eval shape!!!:{loss_arr[i]}")
+
+            if("combined_score" in loss_arr[i]): loss_arr[i] = loss_arr[i]["combined_score"]
+            else: loss_arr[i] = loss_arr[i]["accuracy"]
 
         self.model.config.finetuning_task = task_list
         self.eval_dataset = eval_dataset
