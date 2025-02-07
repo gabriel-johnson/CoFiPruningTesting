@@ -161,9 +161,8 @@ class CoFiBertForSequenceClassification(BertPreTrainedModel):
             logits = task2Logits
         elif input_ids[0][1].item() == 30524:
             logits = task3Logits
-                # if(self.training):print("\n\nthird output head!!!!\n\n")
-            # elif input_ids[i][1].item() == 30525:
-            #     logits[i] = task4Logits[i]
+        elif input_ids[0][1].item() == 30525:
+            logits = task4Logits
 
        
 
