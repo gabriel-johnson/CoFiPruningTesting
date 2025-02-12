@@ -1,4 +1,4 @@
-TASK=[QNLI,QQP,MRPC]
+TASK=[QNLI,QQP,MRPC,SST2]
 SUFFIX=sparsity_50
 EX_CATE=CoFi
 PRUNING_TYPE=structured_heads+structured_mlp+hidden+layer

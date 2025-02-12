@@ -1,0 +1,10 @@
+[MRPC,QNLI,QQP]
+MRPC: acc: .875, f1: .9116, comb: .8933
+QNLI: acc: .8605
+QQP:  acc: .8975, f1: .8711, comb: .8843
+
+[QQP,QNLI,MRPC]
+MRPC: acc: .8799, f1: .9157, comb: .8978
+QNLI: acc: .8565
+QQP:  acc: .8971, f1: .8706, comb: .8838
+

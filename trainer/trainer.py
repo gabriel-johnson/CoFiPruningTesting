@@ -325,13 +325,10 @@ class CoFiTrainer(Trainer):
 
             
 
-            if epoch == 2:
-                self.args.eval_steps = self.args.eval_steps * len(self.train_dataset)
-
             while step < total_dataloader_len:
 
 
-                if step == 5000:
+                if self.global_step == 5000:
                     eval_scale_factor = len(self.train_dataset)
                     for param in model.parameters():
                         param.requires_grad = True
