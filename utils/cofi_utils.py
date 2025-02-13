@@ -183,6 +183,18 @@ def prune_model_with_z(zs, model):
         if hasattr(model, "classifier"):
             if hasattr(model.classifier, "dense"):
                 model.classifier.dense = prune_linear_layer(model.classifier.dense, index, dim=1)
+        if hasattr(model, "task1_classifier"):
+            if hasattr(model.task1_classifier, "dense"):
+                model.task1_classifier.dense = prune_linear_layer(model.task1_classifier.dense, index, dim=1)
+        if hasattr(model, "task2_classifier"):
+            if hasattr(model.task2_classifier, "dense"):
+                model.task2_classifier.dense = prune_linear_layer(model.task2_classifier.dense, index, dim=1)
+        if hasattr(model, "task3_classifier"):
+            if hasattr(model.task3_classifier, "dense"):
+                model.task3_classifier.dense = prune_linear_layer(model.task3_classifier.dense, index, dim=1)
+        if hasattr(model, "task4_classifier"):
+            if hasattr(model.task4_classifier, "dense"):
+                model.task4_classifier.dense = prune_linear_layer(model.task4_classifier.dense, index, dim=1)
         if hasattr(model, "cls"):
             if hasattr(model.cls, "dense"):
                 model.cls.dense = prune_linear_layer(model.classifier.dense, index, dim=1)
@@ -220,6 +232,12 @@ def prune_model_with_z(zs, model):
         else:
             print("up", None)
             print("down", None)
+    for classHead in range(1,5):
+        task_name = f"task{classHead}_classifier"
+        weight = getattr(model, task_name).weight.data 
+        bias = getattr(model, task_name).bias.data 
+        print(f"weight: {weight.shape}")
+        print(f"bias: {bias.shape}")
 
 
 def prune_intermediate_layers(model, keep_dims):
