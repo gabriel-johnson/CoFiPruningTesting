@@ -232,13 +232,16 @@ def prune_model_with_z(zs, model):
         else:
             print("up", None)
             print("down", None)
-    for classHead in range(1,5):
-        task_name = f"task{classHead}_classifier"
-        print(f"Layer: {task_name}")
-        weight = getattr(model, task_name).weight.data 
-        bias = getattr(model, task_name).bias.data 
-        print(f"weight: {weight.shape}")
-        print(f"bias: {bias.shape}")
+
+    # teacher models will not have multiple classifier heads, so we must check before we enter loop
+    if hasattr(model, "task1_classifier"):
+        for classHead in range(1,5):
+            task_name = f"task{classHead}_classifier"
+            weight = getattr(model, task_name).weight.data 
+            bias = getattr(model, task_name).bias.data 
+            print(f"Layer: {task_name}")
+            print(f"weight: {weight.shape}")
+            print(f"bias: {bias.shape}")
 
 
 def prune_intermediate_layers(model, keep_dims):

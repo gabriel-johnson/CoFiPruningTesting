@@ -295,7 +295,7 @@ class CoFiTrainer(Trainer):
 
 
         # training
-        for epoch in range(epochs_trained, int(np.ceil(num_train_epochs))): #! 20 epoch
+        for epoch in range(epochs_trained, int(np.ceil(num_train_epochs)) + 1): #! 20 epoch
             epoch_start = time.time()
 
             if isinstance(train_dataloader_arr[0], DataLoader) and isinstance(train_dataloader_arr[0].sampler, DistributedSampler):
@@ -333,9 +333,8 @@ class CoFiTrainer(Trainer):
                     for param in model.parameters():
                         param.requires_grad = True
 
-                probs = [(math.sqrt(len(t)) * loss_arr[i]) for i, t in enumerate(self.train_dataset)]#, len(self.train_dataset[3])]
-                # probs = [1 - l for l in loss_arr]
-                alpha = 1. - 0.8 * epoch / (20 - 1)
+                probs = [(math.sqrt(len(t)) * loss_arr[i]) for i, t in enumerate(self.train_dataset)]
+                alpha = 1. - 0.8 * epoch / (num_train_epochs - 1)
                 probs = [p**alpha for p in probs]
                 tot = sum(probs)
                 probs = [p/tot for p in probs]
@@ -355,7 +354,10 @@ class CoFiTrainer(Trainer):
 
                 # self.start_prune = False
 
-                if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps: #! before pruning, run 12272 steps
+                if(epoch == num_train_epochs): #we are done with pruning and will now run one epoch of post-training
+                    self.start_prune = False
+
+                if self.prepruning_finetune_steps > 0 and self.global_step == self.prepruning_finetune_steps and epoch < num_train_epochs: #! before pruning, run 12272 steps
                     self.start_prune = True
 
                     self.optimizer = None
@@ -366,7 +368,7 @@ class CoFiTrainer(Trainer):
                     self.create_optimizer_and_scheduler(lr_steps, self.start_prune)
                     logger.info("Starting l0 regularization!")
 
-                if self.start_prune:
+                if self.start_prune and epoch < num_train_epochs:
                     zs = self.l0_module.forward(training=True) #! get the zs
                     self.fill_inputs_with_zs(zs, inputs) #! use the zs
 

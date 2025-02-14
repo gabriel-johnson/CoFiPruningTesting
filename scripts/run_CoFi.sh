@@ -31,7 +31,7 @@ max_seq_length=128
 batch_size=32 
 learning_rate=2e-5
 reg_learning_rate=0.01
-epochs=20 
+epochs=3 
 
 # seed
 seed=57
