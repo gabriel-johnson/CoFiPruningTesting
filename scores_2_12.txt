@@ -13,3 +13,10 @@ QNLI: acc: .842
 MRPC: acc: .8676, f1: .9059, comb: .8868 
 QQP:  acc: .8968, f1: .8703, comb: .8835
 SST2: acc: .9163
+
+
+3 EPOCHS:
+[MRPC,QNLI,QQP]
+MRPC: acc: .8848, f1: .918, comb: .9014
+QNLI: acc: .8483
+QQP: acc: .8881, f1: .8576, comb: .8729
