@@ -218,7 +218,6 @@ class CoFiTrainer(Trainer):
             logger.info(f"Prepruning finetune steps: {self.prepruning_finetune_steps}")
             logger.info(f"Lagrangian warmup steps: {lagrangian_warmup_steps}")
 
-        self.args.max_steps += num_update_steps_per_epoch
 
         if self.args.max_steps > 0:
             self.t_total = self.args.max_steps
@@ -230,6 +229,7 @@ class CoFiTrainer(Trainer):
                                self.args.num_train_epochs)
             num_train_epochs = self.args.num_train_epochs
             self.args.max_steps = self.t_total
+        self.args.max_steps += num_update_steps_per_epoch
 
         logger.info("************************************************************************")
         logger.info(f"max_steps == {self.args.max_steps}")
