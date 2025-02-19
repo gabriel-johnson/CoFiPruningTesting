@@ -1,3 +1,6 @@
+# !/bin/bash
+
+
 TASK=[MRPC,QNLI,QQP]
 SUFFIX=sparsity_50
 EX_CATE=CoFi

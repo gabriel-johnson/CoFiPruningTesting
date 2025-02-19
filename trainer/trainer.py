@@ -87,6 +87,7 @@ class CoFiTrainer(Trainer):
             compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
             l0_module=None,
             teacher_model=None,
+            batching=None,
             **kwargs,
     ):
 
@@ -104,6 +105,7 @@ class CoFiTrainer(Trainer):
 
         self.eval_counter = Eval_Counter()
         self.start_saving_best = True if self.additional_args.pruning_type is None else False
+        self.batching = batching
 
         self.teacher_model = teacher_model
         if self.teacher_model is not None and type(self.teacher_model) is not list:
@@ -182,8 +184,10 @@ class CoFiTrainer(Trainer):
                 self.lr_scheduler = None
    
         
+    def batch_method(self, loss_arr):
+        return [(math.sqrt(len(t))) for i, t in enumerate(self.train_dataset)] if self.batching == 1 else [(loss_arr[i]) for i, t in enumerate(self.train_dataset)]
         
-        
+    
 
     def train(self):
 
@@ -335,7 +339,7 @@ class CoFiTrainer(Trainer):
                     for param in model.parameters():
                         param.requires_grad = True
 
-                probs = [(math.sqrt(len(t)) * loss_arr[i]) for i, t in enumerate(self.train_dataset)]
+                probs = self.batch_method(loss_arr)
                 alpha = 1. - 0.8 * epoch / (num_train_epochs - 1)
                 probs = [p**alpha for p in probs]
                 tot = sum(probs)

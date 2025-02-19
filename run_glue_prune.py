@@ -79,6 +79,7 @@ def main():
     else:
         model_args, data_args, training_args, additional_args = parser.parse_args_into_dataclasses()
     
+
     os.makedirs(training_args.output_dir, exist_ok=True)
 
      # Setup logging
@@ -100,7 +101,7 @@ def main():
         f"Process rank: {training_args.local_rank}, device: {training_args.device}, n_gpu: {training_args.n_gpu}"
         + f"distributed training: {bool(training_args.local_rank != -1)}, 16-bits training: {training_args.fp16}"
     )
-    logger.info(f"Training/evaluation parameters {training_args}")
+    
 
     # save args
     torch.save(data_args, os.path.join(
@@ -627,7 +628,8 @@ def main():
         tokenizer=tokenizer,
         data_collator=data_collator,
         l0_module=l0_module,
-        teacher_model=teacher_model
+        teacher_model=teacher_model,
+        batching=data_args.batching,
     )
 
     
