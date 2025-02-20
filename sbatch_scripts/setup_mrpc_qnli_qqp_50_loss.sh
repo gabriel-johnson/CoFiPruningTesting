@@ -2,7 +2,7 @@
 
 
 TASK=[MRPC,QNLI,QQP]
-SUFFIX=sparsity_50
+SUFFIX=sparsity_50_loss
 EX_CATE=CoFi
 PRUNING_TYPE=structured_heads+structured_mlp+hidden+layer
 SPARSITY=.50
