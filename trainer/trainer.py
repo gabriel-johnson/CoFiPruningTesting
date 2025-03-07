@@ -185,8 +185,7 @@ class CoFiTrainer(Trainer):
    
         
     def batch_method(self, loss_arr):
-        return [(math.sqrt(len(t))) for i, t in enumerate(self.train_dataset)] if self.batching == 1 else [(loss_arr[i]) for i, t in enumerate(self.train_dataset)]
-        
+        return [math.sqrt(len(t)) * (1 - loss_arr[i]) for i, t in enumerate(self.train_dataset)] 
     
 
     def train(self):
@@ -614,23 +613,6 @@ class CoFiTrainer(Trainer):
         teach_model = self.teacher_model
         eval_dataset = self.eval_dataset
 
-        # for param in teach_model[0].parameters():
-        #     print(f"\nparam: {param}")
-        #     print(param.data)
-        # print(f"\nMODEL WEIGHTS: {teach_model[0].layername.weight.shape}")
-        # print("\n")
-
-        # for name, param in teach_model[0].named_parameters():
-        #     if param.requires_grad:
-        #         print(f"Layer: {name}")
-        #         print(param.data)
-
-        torch.set_printoptions(threshold=torch.inf)
-
-# Print classifier weights
-        # print(self.model.classifier.weight)
-
-        # print("\n")
         for i, task in enumerate(task_list):
             self.model.config.finetuning_task = task
             self.eval_dataset = eval_dataset[task]
@@ -638,9 +620,10 @@ class CoFiTrainer(Trainer):
                 self.teacher_model = teach_model[i]
             
             loss_arr[i] = self.evaluate()
-            # print(f"\n\n\n\n\n***********************************\nself.eval shape!!!:{loss_arr[i]}")
 
-            if("combined_score" in loss_arr[i]): loss_arr[i] = loss_arr[i]["combined_score"]
+            if("combined_score" in loss_arr[i]): 
+                loss_arr[i] = loss_arr[i]["combined_score"]
+
             else: loss_arr[i] = loss_arr[i]["accuracy"]
 
         self.model.config.finetuning_task = task_list

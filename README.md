@@ -7,6 +7,32 @@ This repository contains the code and pruned models for our ACL'22 paper [Struct
 * 05/09/2022: We release the pruned model checkpoints on RTE, MRPC and CoLA!
 * 04/01/2022: We released [our paper](https://arxiv.org/pdf/2204.00408.pdf) along with pruned model checkpoints on SQuAD, SST-2, QNLI and MNLI. Check it out!
 
+
+## Changes from Original Repo
+
+### Setup Changes
+
+Dataloading had been done just in ```main()``` of ```run_glue_prune.py```. This has since been changed to a local function ```load_data``` that may be called multiple times. This allows you to create an array of each dataset that the model will be trained on.
+
+Many other sections of ```main()``` in ```run_glue_prune.py``` have been modified. Many are now implemented in ```for``` loops to accomadte more than one dataset. Some of these loops are only entered if there are multiple tasks, however as currently setup this repository may not be suitable for single tasks.
+
+Each train, validation, and test dataset samples now get appeneded with a special token indicating their task. This is essential for knowing which output head to use during training, validation, and testing.
+
+The training dataset is now an array of each tasks' training set. Which task to choose from is explained below. The same is true for the evaluation set, however, the evaluation is done for each task individually. Testing is to be done on one task at a time. 
+
+### Model Changes
+
+The most major change is that the model now has an output head for each task. This has proven to be the only way to have succesful multi task pruning for this implementation. Each output head is initialized with weights for a pretrained version of BERT corresponding to the task that head is responsible for. 
+
+Furthermore, there are now teacher models for each task. These teachermodels are again already finetuned BERT models corresponding to the task, and the same mdoels whose output heads correspond to the student models'.
+
+### Training Changes
+
+Training has been modified in a few key ways. Firstly, evaluation is run for each task seperatly, rather than as a whole. This allows the loss for each individual task to be calculated seperarly. This is then used in the dataloading, the second major change. There is currently dataloading that is similar to annealed sampling, but it also incorperates the loss of each task. The probability that a given task will be selected to be trained on next is sqrt(training_set_size) * loss_for_task. Finally, evaluation is run less frequently after 5000 global steps. 
+
+
+
+
 ## Quick Links
 
 - [☕ CoFiPruning: Structured Pruning Learns Compact and Accurate Models](#-cofipruning-structured-pruning-learns-compact-and-accurate-models)
@@ -186,3 +212,4 @@ Please cite our paper if you use CoFiPruning in your work:
    year={2022}
 }
 ```
+

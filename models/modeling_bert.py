@@ -57,7 +57,7 @@ class CoFiBertForSequenceClassification(BertPreTrainedModel):
 
         self.task1_classifier = nn.Linear(config.hidden_size, 2)
         self.task2_classifier = nn.Linear(config.hidden_size, 2)
-        self.task3_classifier = nn.Linear(config.hidden_size, 2)
+        self.task3_classifier = nn.Linear(config.hidden_size, 3)
         self.task4_classifier = nn.Linear(config.hidden_size, 2)
 
 

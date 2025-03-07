@@ -20,3 +20,15 @@ SST2: acc: .9163
 MRPC: acc: .8848, f1: .918, comb: .9014
 QNLI: acc: .8483
 QQP: acc: .8881, f1: .8576, comb: .8729
+
+LOSS:
+[MRPC,QNLI,QQP]
+MRPC: acc: .875, f1: .9116, comb: .8933
+QNLI: acc: .8519
+QQP: acc: .8821, f1: .8508, comb: .8664
+
+SIZE:
+[MRPC,QNLI,QQP]
+MRPC: acc: .875, f1: .9116, comb: .8933
+QNLI: acc: .8519
+QQP: acc: .8821, f1: .8508, comb: .8664
