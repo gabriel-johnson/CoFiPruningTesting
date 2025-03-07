@@ -7,7 +7,7 @@
 
 #SBATCH --time=7-00:00:00                 
 #SBATCH --gres=gpu:1                         
-#SBATCH --mem=128G                          
+#SBATCH --mem=64G                          
 
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=johnsga2@oregonstate.edu
