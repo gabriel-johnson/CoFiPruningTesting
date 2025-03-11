@@ -51,7 +51,7 @@ distill_ce_loss_alpha=$8
 distill_temp=2
 # 2: fix hidden layers, 3: min distance matching without restriction, 4: min distance matching with restriction
 layer_distill_version=${9} 
-batching=${11}
+additional_train=${11}
 scheduler_type=linear
 
 
@@ -115,5 +115,5 @@ mkdir -p $output_dir
      --scheduler_type $scheduler_type \
      --layer_distill_version $layer_distill_version \
      --prepruning_finetune_epochs $prepruning_finetune_epochs \
-     --batching $batching \
+     --additional_train $additional_train \
      --lagrangian_warmup_epochs $lagrangian_warmup_epochs 2>&1 | tee ${output_dir}/log.txt \

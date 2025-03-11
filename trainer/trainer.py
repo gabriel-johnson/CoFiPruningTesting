@@ -87,7 +87,7 @@ class CoFiTrainer(Trainer):
             compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
             l0_module=None,
             teacher_model=None,
-            batching=None,
+            additional_train=None,
             **kwargs,
     ):
 
@@ -105,7 +105,7 @@ class CoFiTrainer(Trainer):
 
         self.eval_counter = Eval_Counter()
         self.start_saving_best = True if self.additional_args.pruning_type is None else False
-        self.batching = batching
+        self.additional_train = additional_train
 
         self.teacher_model = teacher_model
         if self.teacher_model is not None and type(self.teacher_model) is not list:
@@ -297,10 +297,14 @@ class CoFiTrainer(Trainer):
 
         else:
             self.evaluate()
-
-
-        # training
-        for epoch in range(epochs_trained, int(np.ceil(num_train_epochs)) + 1): #! 20 epoch
+        if self.additional_train == 0 or self.additional_train == 1:
+            for param in model.parameters():
+                param.requires_grad = True
+            self.post_train(loss_arr, train_dataloader_arr, total_dataloader_len, self.args.eval_steps, disable_tqdm)
+            # training
+            for param in model.parameters():
+                param.requires_grad = False
+        for epoch in range(epochs_trained, int(np.ceil(num_train_epochs))): #! 20 epoch
             epoch_start = time.time()
 
             if isinstance(train_dataloader_arr[0], DataLoader) and isinstance(train_dataloader_arr[0].sampler, DistributedSampler):
@@ -487,7 +491,81 @@ class CoFiTrainer(Trainer):
             delattr(self, "_past")
 
         # wandb.log({'global_step':self.global_step,'training_loss':tr_loss.item() / self.global_step})
+        if self.additional_train == 0 or self.additional_train == 2:
+            self.post_train(loss_arr, train_dataloader_arr, total_dataloader_len, self.args.eval_steps, disable_tqdm)
         return TrainOutput(self.global_step, tr_loss.item() / self.global_step, None)
+    
+
+    def post_train(self, loss_arr, train_dataloader_arr, total_dataloader_len, eval_steps, disable_tqdm):
+        print("\n\n\n*************POST_TRAIN**************\n\n\n")
+        step = 0
+        epoch_pbar = tqdm(range(total_dataloader_len), desc="Iteration",
+                              disable=disable_tqdm)
+        while step < total_dataloader_len:
+
+            probs = self.batch_method(loss_arr)
+            alpha = 1. - 0.8 * 4 / (3)
+            probs = [p**alpha for p in probs]
+            tot = sum(probs)
+            probs = [p/tot for p in probs]
+            # samping method from https://github.com/AsaCooperStickland/Bert-n-Pals/blob/master/run_multi_task.py
+            
+            count = np.random.choice(len(self.train_dataset), p=probs)
+            # if(step % 10 == 0):
+            #     print(f"count: {count}")
+
+            # if(step % 100 == 0):
+            #     print(f"probs: {probs}")
+                
+            inputs = next(iter(train_dataloader_arr[count]))
+            model = self.model
+
+            model.train()
+            if self.l0_module is not None:
+                self.l0_module.train()
+            inputs = self._prepare_inputs(inputs)
+
+            distill_loss = None
+            distill_ce_loss = None
+            
+            loss = self.compute_loss(model, inputs)
+
+
+            lagrangian_loss = None
+            loss.backward()
+            epoch_pbar.update(1)
+            step += 1
+
+
+            if (step + 1) % self.args.gradient_accumulation_steps == 0:
+                    torch.nn.utils.clip_grad_norm_(
+                        model.parameters(), self.args.max_grad_norm)
+                    # if step % 500 == 0:
+                    # print(f"main_model_params before: {self.optimizer.param_groups}")
+                    self.lr_scheduler.step()
+
+                    self.optimizer.step()
+                    # if step % 500 == 0:
+                    # print(f"main_model_params after: {self.optimizer.param_groups}")
+
+
+                    model.zero_grad()
+
+                    if step % eval_steps == 0:
+                        self.evaluate_multiple(loss_arr)
+
+
+            if self.args.gradient_accumulation_steps > 1:
+                loss = loss / self.args.gradient_accumulation_steps
+
+
+
+
+            
+        epoch_pbar.close()
+        
+
+
 
     def prediction_loop(self, dataloader: DataLoader, description: str, prediction_loss_only: Optional[bool] = None) -> PredictionOutput:
         prediction_loss_only = (

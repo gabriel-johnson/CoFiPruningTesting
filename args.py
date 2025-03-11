@@ -128,8 +128,8 @@ class DataTrainingArguments:
     validation_file: Optional[str] = field(
         default=None, metadata={"help": "A csv or a json file containing the validation data."}
     )
-    batching:Optional[str] = field(
-        default=0, metadata={"help":"Select the batching method to use."}
+    additional_train:Optional[str] = field(
+        default=0, metadata={"help":"Select the additional train method to use."}
     )
     test_file: Optional[str] = field(default=None, metadata={"help": "A csv or a json file containing the test data."})
 

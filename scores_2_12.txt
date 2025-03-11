@@ -32,3 +32,15 @@ SIZE:
 MRPC: acc: .875, f1: .9116, comb: .8933
 QNLI: acc: .8519
 QQP: acc: .8821, f1: .8508, comb: .8664
+
+
+[QQP,QNLI,SST2] (maybe messed up)
+QQP: acc: .8867, f1: .8568, comb: .8717
+QNLI: acc: .8506
+SST2: acc: .9106
+
+[QQP,SST2,MRPC] (maybe messed up)
+QQP: acc: .8864, f1: .8557, comb: .8711
+SST2: acc: .9117
+MRPC: acc: .875, f1: .911, comb: .893
+ 

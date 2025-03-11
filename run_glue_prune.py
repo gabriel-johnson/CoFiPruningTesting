@@ -629,7 +629,7 @@ def main():
         data_collator=data_collator,
         l0_module=l0_module,
         teacher_model=teacher_model,
-        batching=data_args.batching,
+        additional_train=data_args.additional_train,
     )
 
     
