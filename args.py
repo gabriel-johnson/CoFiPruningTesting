@@ -128,7 +128,7 @@ class DataTrainingArguments:
     validation_file: Optional[str] = field(
         default=None, metadata={"help": "A csv or a json file containing the validation data."}
     )
-    additional_train:Optional[str] = field(
+    additional_train:Optional[int] = field(
         default=0, metadata={"help":"Select the additional train method to use."}
     )
     test_file: Optional[str] = field(default=None, metadata={"help": "A csv or a json file containing the test data."})

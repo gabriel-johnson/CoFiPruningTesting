@@ -43,4 +43,25 @@ SST2: acc: .9106
 QQP: acc: .8864, f1: .8557, comb: .8711
 SST2: acc: .9117
 MRPC: acc: .875, f1: .911, comb: .893
+
+
  
+New pre/post train
+
+BOTH:
+[QQP,QNLI,MRPC] 
+QQP:  acc: .8871, f1: .8559, comb: .8715
+QNLI: acc: .8519
+MRPC: acc: .8775, f1: .9129, comb: .8952
+
+pre:
+[QQP,QNLI,MRPC] 
+QQP:  acc: .8871, f1: .8559, comb: .8715
+QNLI: acc: .8519
+MRPC: acc: .8775, f1: .9129, comb: .8952
+
+post:
+[QQP,QNLI,MRPC] 
+QQP:  acc: .8871, f1: .8559, comb: .8715
+QNLI: acc: .8519
+MRPC: acc: .8775, f1: .9129, comb: .8952

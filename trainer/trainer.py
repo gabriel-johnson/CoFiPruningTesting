@@ -190,6 +190,7 @@ class CoFiTrainer(Trainer):
 
     def train(self):
 
+        
         self.prepruning_finetune_steps = self.prepruning_finetune_steps * 10 #len(self.train_dataset)
 
         if self.train_dataset is None:
@@ -304,6 +305,7 @@ class CoFiTrainer(Trainer):
             # training
             for param in model.parameters():
                 param.requires_grad = False
+        epochs_trained = 3
         for epoch in range(epochs_trained, int(np.ceil(num_train_epochs))): #! 20 epoch
             epoch_start = time.time()
 
@@ -491,13 +493,14 @@ class CoFiTrainer(Trainer):
             delattr(self, "_past")
 
         # wandb.log({'global_step':self.global_step,'training_loss':tr_loss.item() / self.global_step})
+
         if self.additional_train == 0 or self.additional_train == 2:
             self.post_train(loss_arr, train_dataloader_arr, total_dataloader_len, self.args.eval_steps, disable_tqdm)
         return TrainOutput(self.global_step, tr_loss.item() / self.global_step, None)
     
 
     def post_train(self, loss_arr, train_dataloader_arr, total_dataloader_len, eval_steps, disable_tqdm):
-        print("\n\n\n*************POST_TRAIN**************\n\n\n")
+        logger.info("\n\n\n*************POST_TRAIN**************\n\n\n")
         step = 0
         epoch_pbar = tqdm(range(total_dataloader_len), desc="Iteration",
                               disable=disable_tqdm)
