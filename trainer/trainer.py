@@ -305,7 +305,6 @@ class CoFiTrainer(Trainer):
             # training
             for param in model.parameters():
                 param.requires_grad = False
-        epochs_trained = 3
         for epoch in range(epochs_trained, int(np.ceil(num_train_epochs))): #! 20 epoch
             epoch_start = time.time()
 
