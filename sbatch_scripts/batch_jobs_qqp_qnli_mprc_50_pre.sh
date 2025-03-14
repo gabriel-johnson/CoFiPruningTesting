@@ -5,7 +5,7 @@
 #SBATCH -o out/qqp_qnli_mrpc_50_pre_out                           
 #SBATCH -e out/qqp_qnli_mrpc_50_pre_err                         
 
-#SBATCH --time=7-00:00:00                 
+#SBATCH --time=1-00:00:00                 
 #SBATCH --gres=gpu:1                         
 #SBATCH --mem=64G                          
 

@@ -303,7 +303,13 @@ class CoFiTrainer(Trainer):
                 param.requires_grad = True
             self.post_train(loss_arr, train_dataloader_arr, total_dataloader_len, self.args.eval_steps, disable_tqdm)
             # training
-            for param in model.parameters():
+            for name, param in model.named_parameters():
+                if("embeddings" in name):
+                    param.requres_grad = True
+                    continue
+                if("classifier" in name):
+                    param.requires_grad = True
+                    continue
                 param.requires_grad = False
         for epoch in range(epochs_trained, int(np.ceil(num_train_epochs))): #! 20 epoch
             epoch_start = time.time()
