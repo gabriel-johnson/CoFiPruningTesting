@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J POST                                              
+#SBATCH -J POST_FREEZE                                              
 #SBATCH -A eecs   
 #SBATCH -p dgx2                                                           
 #SBATCH -o out/qqp_qnli_mrpc_50_post_out                           

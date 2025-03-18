@@ -302,7 +302,7 @@ class CoFiTrainer(Trainer):
             for param in model.parameters():
                 param.requires_grad = True
             self.post_train(loss_arr, train_dataloader_arr, total_dataloader_len, self.args.eval_steps, disable_tqdm)
-            # training
+            # # training
             for name, param in model.named_parameters():
                 if("embeddings" in name):
                     param.requres_grad = True
@@ -500,6 +500,14 @@ class CoFiTrainer(Trainer):
         # wandb.log({'global_step':self.global_step,'training_loss':tr_loss.item() / self.global_step})
 
         if self.additional_train == 0 or self.additional_train == 2:
+            for name, param in model.named_parameters():
+                if("embeddings" in name):
+                    param.requres_grad = True
+                    continue
+                if("classifier" in name):
+                    param.requires_grad = True
+                    continue
+                param.requires_grad = False
             self.post_train(loss_arr, train_dataloader_arr, total_dataloader_len, self.args.eval_steps, disable_tqdm)
         return TrainOutput(self.global_step, tr_loss.item() / self.global_step, None)
     
@@ -715,6 +723,21 @@ class CoFiTrainer(Trainer):
         self.model.config.finetuning_task = task_list
         self.eval_dataset = eval_dataset
         self.teacher_model = teach_model
+        eval_score = sum(loss_arr) / len(loss_arr)
+        best_so_far = self.eval_counter.update(
+                self.epoch, self.global_step, eval_score)
+        if best_so_far:
+            best_dir = os.path.join(self.args.output_dir, "best")
+            if not os.path.exists(best_dir):
+                os.makedirs(best_dir)
+
+            if self.l0_module is not None:
+                zs = self.l0_module.forward(training=False)
+                torch.save(zs, os.path.join(best_dir, "zs.pt"))
+                torch.save(self.l0_module, os.path.join(
+                    best_dir, "l0_module.pt"))
+            logger.info(f"Saving the best model so far: [Epoch {int(self.epoch)} | Step: {self.global_step} | Model size: {output.metrics['remaining_params'] if 'remaining_params' in output.metrics else 'Full' } | Score: {round(eval_score, 5)}]")
+            self.model.save_pretrained(best_dir)
 
 
     def evaluate(self, eval_dataset: Optional[Dataset] = None) -> Tuple[Dict[str, float], List]:
@@ -743,7 +766,7 @@ class CoFiTrainer(Trainer):
 
         # logger.info(f"starting saving best: {self.global_step} {self.start_saving_best}")
 
-        if self.start_saving_best:
+        if self.start_saving_best and not isinstance(self.model.config.finetuning_task, list):
             best_so_far = self.eval_counter.update(
                 self.epoch, self.global_step, eval_score)
             if best_so_far:

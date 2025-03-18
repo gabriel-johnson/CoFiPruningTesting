@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J BOTH                                              
+#SBATCH -J BOTH_FREEZE                                              
 #SBATCH -A eecs   
 #SBATCH -p dgx2                                                           
 #SBATCH -o out/qqp_qnli_mrpc_50_both_out                           
