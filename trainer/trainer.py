@@ -713,12 +713,12 @@ class CoFiTrainer(Trainer):
             if type(self.teacher_model) is list: 
                 self.teacher_model = teach_model[i]
             
-            loss_arr[i] = self.evaluate()
+            metrics = self.evaluate()
 
-            if("combined_score" in loss_arr[i]): 
-                loss_arr[i] = loss_arr[i]["combined_score"]
+            if("combined_score" in metrics): 
+                loss_arr[i] = metrics["combined_score"]
 
-            else: loss_arr[i] = loss_arr[i]["accuracy"]
+            else: loss_arr[i] = metrics["accuracy"]
 
         self.model.config.finetuning_task = task_list
         self.eval_dataset = eval_dataset
@@ -736,7 +736,7 @@ class CoFiTrainer(Trainer):
                 torch.save(zs, os.path.join(best_dir, "zs.pt"))
                 torch.save(self.l0_module, os.path.join(
                     best_dir, "l0_module.pt"))
-            logger.info(f"Saving the best model so far: [Epoch {int(self.epoch)} | Step: {self.global_step} | Model size: {output.metrics['remaining_params'] if 'remaining_params' in output.metrics else 'Full' } | Score: {round(eval_score, 5)}]")
+            logger.info(f"Saving the best model so far: [Epoch {int(self.epoch)} | Step: {self.global_step} | Model size: {metrics['remaining_params'] if 'remaining_params' in metrics else 'Full' } | Score: {round(eval_score, 5)}]")
             self.model.save_pretrained(best_dir)
 
 
