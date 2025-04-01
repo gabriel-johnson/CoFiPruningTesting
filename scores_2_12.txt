@@ -87,3 +87,19 @@ post:
 QQP:  acc: .8871, f1: .8559, comb: .8715
 QNLI: acc: .8519
 MRPC: acc: .8775, f1: .9129, comb: .8952
+
+
+New pre/post train -- freeze layers
+
+BOTH:
+[QQP,QNLI,MRPC] 
+QQP:  acc: .8901, f1: .8605, comb: .8753
+QNLI: acc: .8514
+MRPC: acc: .8824, f1: .917, comb: .8997
+
+
+post:
+[QQP,QNLI,MRPC] 
+QQP:  acc: .8871, f1: .8559, comb: .8715
+QNLI: acc: .8519
+MRPC: acc: .8775, f1: .9129, comb: .8952

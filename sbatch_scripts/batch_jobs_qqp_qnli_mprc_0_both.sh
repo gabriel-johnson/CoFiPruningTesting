@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH -J POST_FREEZE                                              
+#SBATCH -J BOTH_30                                          
 #SBATCH -A eecs   
 #SBATCH -p dgx2                                                           
-#SBATCH -o out/qqp_qnli_mrpc_50_post_out                           
-#SBATCH -e out/qqp_qnli_mrpc_50_post_err                         
+#SBATCH -o out/qqp_qnli_mrpc_50_both_out                           
+#SBATCH -e out/qqp_qnli_mrpc_50_both_err                         
 
 #SBATCH --time=1-00:00:00                 
 #SBATCH --gres=gpu:1                         
@@ -17,4 +17,4 @@ module load python/3.10
 module load cuda/12.1
 module load openssl/3.1.5
 
-bash sbatch_scripts/setup_qqp_qnli_mrpc_50_post.sh
+bash sbatch_scripts/setup_qqp_qnli_mrpc_0_both.sh
