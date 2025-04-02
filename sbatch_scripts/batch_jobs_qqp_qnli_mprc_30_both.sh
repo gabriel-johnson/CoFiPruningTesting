@@ -2,8 +2,8 @@
 #SBATCH -J BOTH_30                                          
 #SBATCH -A eecs   
 #SBATCH -p dgx2                                                           
-#SBATCH -o out/qqp_qnli_mrpc_50_both_out                           
-#SBATCH -e out/qqp_qnli_mrpc_50_both_err                         
+#SBATCH -o out/qqp_qnli_mrpc_30_both_out                           
+#SBATCH -e out/qqp_qnli_mrpc_30_both_err                         
 
 #SBATCH --time=1-00:00:00                 
 #SBATCH --gres=gpu:1                         
