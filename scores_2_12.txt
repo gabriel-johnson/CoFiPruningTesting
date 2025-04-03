@@ -103,3 +103,43 @@ post:
 QQP:  acc: .8871, f1: .8559, comb: .8715
 QNLI: acc: .8519
 MRPC: acc: .8775, f1: .9129, comb: .8952
+
+
+
+
+Different spaarsitys
+
+0:
+[QQP,QNLI,MRPC] 
+QQP:  acc: .8914, f1: .8639, comb: .8776
+QNLI: acc: .8574
+MRPC: acc: .8824, f1: .9175, comb: .8999
+.001848
+
+30:
+[QQP,QNLI,MRPC] 
+QQP:  acc: .8924, f1: .8641, comb: .8782
+QNLI: acc: .8594
+MRPC: acc: .8775, f1: .9138, comb: .8956
+.001384
+
+50:
+[QQP,QNLI,MRPC] 
+QQP:  acc: .8901, f1: .8605, comb: .8753
+QNLI: acc: .8514
+MRPC: acc: .8824, f1: .917, comb: .8997
+.001039
+
+70:
+[QQP,QNLI,MRPC] 
+QQP:  acc: .8764, f1: .8431, comb: .8697
+QNLI: acc: .8448
+MRPC: acc: .8652, f1: .903, comb: .8841
+.000682
+
+95:
+[QQP,QNLI,MRPC] 
+QQP:  acc: .7429, f1: .7133, comb: .7281
+QNLI: acc: .7509
+MRPC: acc: .7353, f1: .8354, comb: .7853
+.000144

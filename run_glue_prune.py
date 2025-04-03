@@ -633,32 +633,6 @@ def main():
     )
 
     
-    # for param in model.parameters():
-    #     # if name == "task1_head" or name == "task2_head" or name == "task3_head":
-    #     #     continue
-    #     param.requires_grad = False
-
-    
-
-    # # Verify that requires_grad is only True for the output layers
-    # for name, param in model.named_parameters():
-    #     print(name, param.requires_grad)
-        
-    # for name, param in model.named_parameters():
-    #     if name == "task1_head" or name == "task2_head" or name == "task3_head":
-    #         print("making task1head require grad!")
-    #         param.requires_grad = True
-        # print(f"Name: {name}")
-        # print(f"Parameter: {param}")
-        # print(f"Parameter shape: {param.shape}")
-    #     # print("-" * 50)
-    # model.task1_head.requires_grad = True
-    # model.task2_head.requires_grad = True
-    # model.task3_head.requires_grad = True
-    # print(f"task1 weights: {model.task1_head.weight}")
-    # print(f"task2 weights: {model.task2_head.weight}")
-    # print(f"task3 weights: {model.task3_head.weight}")
-    # print(f"\n\n\ntask1 req grad: {model.task1_head.requires_grad}\n\n\n")
 
     # return
     if training_args.do_train:
