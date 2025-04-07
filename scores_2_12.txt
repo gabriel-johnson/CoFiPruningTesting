@@ -137,6 +137,27 @@ QNLI: acc: .8448
 MRPC: acc: .8652, f1: .903, comb: .8841
 .000682
 
+75:
+[QQP,QNLI,MRPC] 
+QQP:  acc: .8723, f1: .8387, comb: .8555
+QNLI: acc: .8305
+MRPC: acc: .8603, f1: .9002, comb: .8802
+.00061
+
+85:
+[QQP,QNLI,MRPC] 
+QQP:  acc: .8373, f1: .799, comb: .8182
+QNLI: acc: .8305
+MRPC: acc: .8284, f1: .878, comb: .8532
+.000398
+
+90:
+[QQP,QNLI,MRPC] 
+QQP:  acc: .8155, f1: .7681, comb: .7918
+QNLI: acc: .7974
+MRPC: acc: .8064, f1: .8597, comb: .833
+.000604
+
 95:
 [QQP,QNLI,MRPC] 
 QQP:  acc: .7429, f1: .7133, comb: .7281

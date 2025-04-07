@@ -296,6 +296,7 @@ class L0Module(Module):
         except:
             pdb.set_trace()
         soft_mask = torch.sigmoid(loga / self.temperature * self.magical_number)
+        logger.info(f"SoftMax: {soft_mask}")
         if num_zeros > 0:
             if soft_mask.ndim == 0:
                 soft_mask = torch.tensor(0).to(loga.device)
@@ -363,6 +364,7 @@ class L0Module(Module):
                 loga = self.z_logas[type]
                 z = self._sample_z(loga)
                 zs[f"{type}_z"] = z.reshape(self.shapes[type])
+
         else:
             for i, type in enumerate(self.types):
                 if type != "hidden": # hidden is not a per layer sample
@@ -378,6 +380,7 @@ class L0Module(Module):
             for type in zs:
                 if type != "hidden_z":
                     zs[type] = torch.stack(zs[type])
+            
         return zs 
 
 if __name__ == "__main__":
