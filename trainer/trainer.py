@@ -388,7 +388,8 @@ class CoFiTrainer(Trainer):
 
                     zs = self.l0_module.forward(training=True) #! get the zs
                     if step % 500 == 0:
-                        logger.info(f"zs train after {self.model.config.finetuning_task}: {zs}")
+                        with open("masks.txt", "a") as file:
+                            file.write(f"zs after train at step {step} for task {self.model.config.finetuning_task[count]}: mlp_z: {zs['mlp_z']}\nhead_layer_z: {zs['head_layer_z']}")
 
                     self.fill_inputs_with_zs(zs, inputs) #! use the zs
 
@@ -737,7 +738,10 @@ class CoFiTrainer(Trainer):
 
             if self.l0_module is not None:
                 zs = self.l0_module.forward(training=False)
-                logger.info(f"zs after eval: {zs}")
+                with open("eval_masks.txt", "a") as file:
+                    file.write(f"zs after train at step {self.global_step}: mlp_z: {zs['mlp_z']}\nhead_layer_z: {zs['head_layer_z']}")
+                    
+
 
                 torch.save(zs, os.path.join(best_dir, "zs.pt"))
                 torch.save(self.l0_module, os.path.join(
