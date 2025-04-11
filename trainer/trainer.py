@@ -394,7 +394,7 @@ class CoFiTrainer(Trainer):
                     if step % 500 == 0:
                         task_name = self.model.config.finetuning_task[count]
                         with open(f"out/masks/{task_name}_masks.txt", "a") as file:
-                            file.write(f"\nzs after train at step {step} for task {task_name}: mlp_z: {zs['mlp_z']}\nhead_layer_z: {zs['head_layer_z']}")
+                            file.write(f"\nzs after train at step {step} for task {task_name}: mlp_z: {zs['mlp_z']}\nhead_layer_z: {zs['head_layer_z']}\nhead_z: {zs['head_z']}")
 
                     self.fill_inputs_with_zs(zs, inputs) #! use the zs
 
@@ -744,7 +744,7 @@ class CoFiTrainer(Trainer):
             if self.l0_module is not None:
                 zs = self.l0_module.forward(training=False)
                 with open("out/masks/eval_masks.txt", "a") as file:
-                    file.write(f"\nzs after train at step {self.global_step}: mlp_z: {zs['mlp_z']}\nhead_layer_z: {zs['head_layer_z']}")
+                    file.write(f"\nzs after train at step {self.global_step}: mlp_z: {zs['mlp_z']}\nhead_layer_z: {zs['head_layer_z']}\nhead_z: {zs['head_z']}")
                     
 
 
