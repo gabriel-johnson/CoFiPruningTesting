@@ -287,7 +287,7 @@ class L0Module(Module):
         return z
 
     # during inference
-    def _deterministic_z(self, size, loga):
+    def _deterministic_z(self, size, loga, actual_prune):
         # Following https://github.com/asappresearch/flop/blob/e80e47155de83abbe7d90190e00d30bfb85c18d5/flop/hardconcrete.py#L8 line 103
         expected_num_nonzeros = torch.sum(1 - self.cdf_qz(0, loga))
         expected_num_zeros = size - expected_num_nonzeros.item()
@@ -300,7 +300,7 @@ class L0Module(Module):
         if num_zeros > 0:
             if soft_mask.ndim == 0:
                 soft_mask = torch.tensor(0).to(loga.device)
-            else:
+            elif actual_prune:
                 _, indices = torch.topk(soft_mask, k=num_zeros, largest=False)
                 soft_mask[indices] = 0.
         return soft_mask
@@ -356,7 +356,7 @@ class L0Module(Module):
 
         
 
-    def forward(self, training=True,):
+    def forward(self, training=True, actual_prune=False):
         zs = {f"{type}_z": [] for type in self.types}
 
         if training:
@@ -375,10 +375,10 @@ class L0Module(Module):
                     for layer in range(len(loga_all_layers)):
                         loga = loga_all_layers[layer]
                         size = self.sizes[type]
-                        z = self._deterministic_z(size, loga)
+                        z = self._deterministic_z(size, loga, actual_prune)
                         zs[f"{type}_z"].append(z.reshape(self.shapes[type][1:]))
                 else:
-                    z = self._deterministic_z(self.sizes[type], self.hidden_loga)
+                    z = self._deterministic_z(self.sizes[type], self.hidden_loga, actual_prune)
                     zs[f"{type}_z"] = z
             for type in zs:
                 # print(f"IDK IF WE GET HERE BUT HERE IS TYPE {type}")
