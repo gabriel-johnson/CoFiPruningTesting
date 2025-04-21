@@ -300,9 +300,10 @@ class L0Module(Module):
         if num_zeros > 0:
             if soft_mask.ndim == 0:
                 soft_mask = torch.tensor(0).to(loga.device)
-            elif actual_prune:
+            elif actual_prune == True:
                 _, indices = torch.topk(soft_mask, k=num_zeros, largest=False)
                 soft_mask[indices] = 0.
+            
         return soft_mask
 
     def get_z_from_zs(self, zs):

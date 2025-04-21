@@ -103,6 +103,8 @@ class CoFiTrainer(Trainer):
         self.l0_optimizer = None
         self.lagrangian_optimizer = None
 
+        self.prune_this_step = False
+
         self.eval_counter = Eval_Counter()
         self.start_saving_best = True if self.additional_args.pruning_type is None else False
         self.additional_train = additional_train
@@ -347,7 +349,10 @@ class CoFiTrainer(Trainer):
 
             while step < total_dataloader_len:
 
-
+                if self.global_step >= 100 and self.global_step % 100 == 0:
+                    self.prune_this_step = True
+                else:
+                    self.prune_this_step = False
                 if self.global_step == 5000:
                     eval_scale_factor = len(self.train_dataset)
                     for param in model.parameters():
@@ -390,7 +395,7 @@ class CoFiTrainer(Trainer):
 
                 if self.start_prune and epoch < num_train_epochs:
 
-                    zs = self.l0_module.forward(training=True, actual_prune=(self.global_step % 10 == 0)) #! get the zs
+                    zs = self.l0_module.forward(training=True, actual_prune=self.prune_this_step) #! get the zs
                     if step % 500 == 0:
                         task_name = self.model.config.finetuning_task[count]
                         with open(f"{self.args.output_dir}/masks/{task_name}_masks.txt", "a") as file:
@@ -631,7 +636,7 @@ class CoFiTrainer(Trainer):
         zs = None
         if self.start_prune:
             self.l0_module.eval()
-            zs = self.l0_module.forward(training=False, actual_prune=(self.global_step % 10 == 0))
+            zs = self.l0_module.forward(training=False, actual_prune=self.prune_this_step)
 
         if zs is not None:
             pruned_model_size_info = self.l0_module.calculate_model_size(zs)
@@ -742,7 +747,7 @@ class CoFiTrainer(Trainer):
                 os.makedirs(best_dir)
 
             if self.l0_module is not None:
-                zs = self.l0_module.forward(training=False, actual_prune=(self.global_step % 10 == 0))
+                zs = self.l0_module.forward(training=False, actual_prune=self.prune_this_step)
                 with open(f"{self.args.output_dir}/eval_masks.txt", "a") as file:
                     file.write(f"\nzs after train at step {self.global_step}: mlp_z: {zs['mlp_z']}\nhead_layer_z: {zs['head_layer_z']}\nhead_z: {zs['head_z']}")
                     
@@ -790,7 +795,7 @@ class CoFiTrainer(Trainer):
                     os.makedirs(best_dir)
 
                 if self.l0_module is not None:
-                    zs = self.l0_module.forward(training=False, actual_prune=(self.global_step % 10 == 0))
+                    zs = self.l0_module.forward(training=False, actual_prune=self.prune_this_step)
                     torch.save(zs, os.path.join(best_dir, "zs.pt"))
                     torch.save(self.l0_module, os.path.join(
                         best_dir, "l0_module.pt"))
@@ -803,7 +808,7 @@ class CoFiTrainer(Trainer):
         output_dir = output_dir if output_dir is not None else self.args.output_dir
         torch.save(self.l0_module, os.path.join(output_dir, "l0_module.pt"))
 
-        zs = self.l0_module.forward(training=False, actual_prune=(self.global_step % 10 == 0))
+        zs = self.l0_module.forward(training=False, actual_prune=self.prune_this_step)
 
         torch.save(zs, os.path.join(output_dir, "zs.pt"))
 

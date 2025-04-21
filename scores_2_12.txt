@@ -164,3 +164,9 @@ QQP:  acc: .7429, f1: .7133, comb: .7281
 QNLI: acc: .7509
 MRPC: acc: .7353, f1: .8354, comb: .7853
 .000144
+
+75:  -- prune every ten
+[QQP,QNLI,MRPC] 
+QQP:  acc: .8723, f1: .8387, comb: .8555
+QNLI: acc: .8305
+MRPC: acc: .8603, f1: .9002, comb: .8802
