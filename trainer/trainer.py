@@ -103,7 +103,8 @@ class CoFiTrainer(Trainer):
         self.l0_optimizer = None
         self.lagrangian_optimizer = None
 
-        self.prune_this_step = False
+
+        self.epoch_factor = 0
 
         self.eval_counter = Eval_Counter()
         self.start_saving_best = True if self.additional_args.pruning_type is None else False
@@ -320,6 +321,8 @@ class CoFiTrainer(Trainer):
         for epoch in range(epochs_trained, int(np.ceil(num_train_epochs))): #! 20 epoch
             epoch_start = time.time()
 
+            self.epoch_factor = math.sqrt((int(np.ceil(num_train_epochs)) + 1) - epoch)
+
             if isinstance(train_dataloader_arr[0], DataLoader) and isinstance(train_dataloader_arr[0].sampler, DistributedSampler):
                 train_dataloader_arr[0].sampler.set_epoch(epoch)
 
@@ -349,10 +352,7 @@ class CoFiTrainer(Trainer):
 
             while step < total_dataloader_len:
 
-                if self.global_step >= 100 and self.global_step % 100 == 0:
-                    self.prune_this_step = True
-                else:
-                    self.prune_this_step = False
+               
                 if self.global_step == 5000:
                     eval_scale_factor = len(self.train_dataset)
                     for param in model.parameters():
@@ -395,7 +395,7 @@ class CoFiTrainer(Trainer):
 
                 if self.start_prune and epoch < num_train_epochs:
 
-                    zs = self.l0_module.forward(training=True, actual_prune=self.prune_this_step) #! get the zs
+                    zs = self.l0_module.forward(training=True) #! get the zs
                     if step % 500 == 0:
                         task_name = self.model.config.finetuning_task[count]
                         with open(f"{self.args.output_dir}/masks/{task_name}_masks.txt", "a") as file:
@@ -636,7 +636,7 @@ class CoFiTrainer(Trainer):
         zs = None
         if self.start_prune:
             self.l0_module.eval()
-            zs = self.l0_module.forward(training=False, actual_prune=self.prune_this_step)
+            zs = self.l0_module.forward(training=False)
 
         if zs is not None:
             pruned_model_size_info = self.l0_module.calculate_model_size(zs)
@@ -699,7 +699,7 @@ class CoFiTrainer(Trainer):
 
         if zs is not None:
             lag_loss, expected_sparsity, target_sparsity = self.l0_module.lagrangian_regularization(
-                self.global_step - self.prepruning_finetune_steps)
+                self.global_step - self.prepruning_finetune_steps, self.epoch_factor)
 
             expected_sparsity = round(expected_sparsity.item(), 5)
             metrics.update(pruned_model_size_info)
@@ -747,7 +747,7 @@ class CoFiTrainer(Trainer):
                 os.makedirs(best_dir)
 
             if self.l0_module is not None:
-                zs = self.l0_module.forward(training=False, actual_prune=self.prune_this_step)
+                zs = self.l0_module.forward(training=False)
                 with open(f"{self.args.output_dir}/eval_masks.txt", "a") as file:
                     file.write(f"\nzs after train at step {self.global_step}: mlp_z: {zs['mlp_z']}\nhead_layer_z: {zs['head_layer_z']}\nhead_z: {zs['head_z']}")
                     
@@ -795,7 +795,7 @@ class CoFiTrainer(Trainer):
                     os.makedirs(best_dir)
 
                 if self.l0_module is not None:
-                    zs = self.l0_module.forward(training=False, actual_prune=self.prune_this_step)
+                    zs = self.l0_module.forward(training=False)
                     torch.save(zs, os.path.join(best_dir, "zs.pt"))
                     torch.save(self.l0_module, os.path.join(
                         best_dir, "l0_module.pt"))
@@ -808,7 +808,7 @@ class CoFiTrainer(Trainer):
         output_dir = output_dir if output_dir is not None else self.args.output_dir
         torch.save(self.l0_module, os.path.join(output_dir, "l0_module.pt"))
 
-        zs = self.l0_module.forward(training=False, actual_prune=self.prune_this_step)
+        zs = self.l0_module.forward(training=False)
 
         torch.save(zs, os.path.join(output_dir, "zs.pt"))
 
@@ -963,7 +963,7 @@ class CoFiTrainer(Trainer):
         if self.start_prune:
             lagrangian_loss, _, _ = \
                 self.l0_module.lagrangian_regularization(
-                    self.global_step - self.prepruning_finetune_steps)
+                    self.global_step - self.prepruning_finetune_steps, self.epoch_factor)
             loss += lagrangian_loss
 
         if self.args.gradient_accumulation_steps > 1:

@@ -253,20 +253,20 @@ class L0Module(Module):
         return num_parameters
 
 
-    def get_target_sparsity(self, pruned_steps):
+    def get_target_sparsity(self, pruned_steps, epoch_factor):
         target_sparsity = (self.target_sparsity - self.start_sparsity) * min(1, pruned_steps / self.lagrangian_warmup) + self.start_sparsity
-        return target_sparsity
+        return (target_sparsity * epoch_factor)
 
 
-    def lagrangian_regularization(self, pruned_steps):
-        target_sparsity = self.target_sparsity
+    def lagrangian_regularization(self, pruned_steps, epoch_factor):
+        target_sparsity = self.target_sparsity 
         if "hidden" in self.types:
             expected_size = self.get_num_parameters_and_constraint_for_hidden() #! calculate \bar s
         else:
             expected_size = self.get_num_parameters_and_constraint() #! calculate \bar s
         expected_sparsity = 1 - expected_size / self.prunable_model_size
         if self.lagrangian_warmup > 0:
-            target_sparsity = self.get_target_sparsity(pruned_steps)
+            target_sparsity = self.get_target_sparsity(pruned_steps, epoch_factor)
         lagrangian_loss = ( #! see appendix
                 self.lambda_1 * (expected_sparsity - target_sparsity)
                 + self.lambda_2 * (expected_sparsity - target_sparsity) ** 2 #! where is the lambda 1 and lambda 2 from
@@ -287,7 +287,7 @@ class L0Module(Module):
         return z
 
     # during inference
-    def _deterministic_z(self, size, loga, actual_prune):
+    def _deterministic_z(self, size, loga):
         # Following https://github.com/asappresearch/flop/blob/e80e47155de83abbe7d90190e00d30bfb85c18d5/flop/hardconcrete.py#L8 line 103
         expected_num_nonzeros = torch.sum(1 - self.cdf_qz(0, loga))
         expected_num_zeros = size - expected_num_nonzeros.item()
@@ -300,7 +300,7 @@ class L0Module(Module):
         if num_zeros > 0:
             if soft_mask.ndim == 0:
                 soft_mask = torch.tensor(0).to(loga.device)
-            elif actual_prune == True:
+            else:
                 _, indices = torch.topk(soft_mask, k=num_zeros, largest=False)
                 soft_mask[indices] = 0.
             
@@ -357,14 +357,11 @@ class L0Module(Module):
 
         
 
-    def forward(self, training=True, actual_prune=False):
+    def forward(self, training=True):
         zs = {f"{type}_z": [] for type in self.types}
 
         if training:
             for i, type in enumerate(self.types):
-                # print(f"IDK IF WE GET HERE BUT HERE IS TYPE (train) {type}")
-                # print(f"\nhere actual\n {zs}")
-
                 loga = self.z_logas[type]
                 z = self._sample_z(loga)
                 zs[f"{type}_z"] = z.reshape(self.shapes[type])
@@ -376,15 +373,12 @@ class L0Module(Module):
                     for layer in range(len(loga_all_layers)):
                         loga = loga_all_layers[layer]
                         size = self.sizes[type]
-                        z = self._deterministic_z(size, loga, actual_prune)
+                        z = self._deterministic_z(size, loga)
                         zs[f"{type}_z"].append(z.reshape(self.shapes[type][1:]))
                 else:
-                    z = self._deterministic_z(self.sizes[type], self.hidden_loga, actual_prune)
+                    z = self._deterministic_z(self.sizes[type], self.hidden_loga)
                     zs[f"{type}_z"] = z
             for type in zs:
-                # print(f"IDK IF WE GET HERE BUT HERE IS TYPE {type}")
-                # print(f"\nhere actual\n {zs}")
-
                 if type != "hidden_z":
                     zs[type] = torch.stack(zs[type])
             
