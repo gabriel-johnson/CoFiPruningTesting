@@ -321,7 +321,7 @@ class CoFiTrainer(Trainer):
         for epoch in range(epochs_trained, int(np.ceil(num_train_epochs))): #! 20 epoch
             epoch_start = time.time()
 
-            self.epoch_factor = math.sqrt((int(np.ceil(num_train_epochs)) + 1) - epoch)
+            self.epoch_factor = (int(np.ceil(num_train_epochs)) + 1)
 
             if isinstance(train_dataloader_arr[0], DataLoader) and isinstance(train_dataloader_arr[0].sampler, DistributedSampler):
                 train_dataloader_arr[0].sampler.set_epoch(epoch)

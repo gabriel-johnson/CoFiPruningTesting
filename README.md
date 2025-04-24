@@ -20,11 +20,14 @@ Each train, validation, and test dataset samples now get appeneded with a specia
 
 The training dataset is now an array of each tasks' training set. Which task to choose from is explained below. The same is true for the evaluation set, however, the evaluation is done for each task individually. Testing is to be done on one task at a time. 
 
+Additionally the label names for each dataset have been changed. This is currently only implemented for the binary classification tasks of GLUE,
+so MNLI is not supported at this time. The label names have simply been overwritten to 0: negative and 1: positive. This is likely redundant and all label names could be removed leaving just the labels themselves.
+
 ### Model Changes
 
-The most major change is that the model now has an output head for each task. This has proven to be the only way to have succesful multi task pruning for this implementation. Each output head is initialized with weights for a pretrained version of BERT corresponding to the task that head is responsible for. 
+The most major change is that the model now has an output head for each task. This has proven to be the only way to have succesful multi task pruning for this implementation. Each output head is initialized with weights for a pretrained version of BERT corresponding to the task that head is responsible for. This is done by downloading a specific pretrained model for the task, and copying the classification layer to the output head for that task.
 
-Furthermore, there are now teacher models for each task. These teachermodels are again already finetuned BERT models corresponding to the task, and the same mdoels whose output heads correspond to the student models'.
+Furthermore, there are now teacher models for each task. These teachermodels are the same mdoels whose output heads correspond to the student models'.
 
 ### Training Changes
 
