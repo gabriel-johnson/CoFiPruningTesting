@@ -174,9 +174,6 @@ def main():
         # See more about loading any type of standard or custom dataset at
         # https://huggingface.co/docs/datasets/loading_datasets.html.
 
-        # Labels
-    
-
     if data_args.task_list is not None:
         raw_datasets = []
 
@@ -239,20 +236,6 @@ def main():
 
         for (index, dataset) in enumerate(raw_datasets):
             combined_raw_datasets.append(create_dataset(data_args.task_list[index], dataset, label_count))
-            # label_count = label_count + glue_tasks_num_labels[data_args.task_list[index]]
-        # label_list = []
-    
-        # is_regression = []
-        # num_labels = 0
-        # for index, task in enumerate(data_args.task_list):
-        #     is_regression.append(data_args.task_name == "stsb")
-        #     if not is_regression[index]:
-        #         for label in raw_datasets[index]["train"].features["label"].names:
-        #             label_list.append(label)
-        #             num_labels = num_labels + 1
-        #     else:
-        #         raw_datasets[index]["num_labels"] = 1
-       
 
     elif data_args.task_name is not None:
         is_regression = data_args.task_name == "stsb"
@@ -302,7 +285,6 @@ def main():
 
     
     
-    # return
     TeacherModel = CoFiTeacherBertForSequenceClassification
     if additional_args.do_distill:
         if data_args.task_list is not None:
@@ -394,9 +376,7 @@ def main():
         # We will pad later, dynamically at batch creation, to the max sequence length in each batch
         padding = False
 
-    # Some models have set the order of the labels to use, so let's make sure we do use it.
-    # label_to_id = label_to_id
-    
+    # Some models have set the order of the labels to use, so let's make sure we do use it.    
     
     if (
         model.config.label2id != PretrainedConfig(num_labels=num_labels).label2id
@@ -439,16 +419,7 @@ def main():
             param.requires_grad = True
             continue
         param.requires_grad = False
-    # for param in model.parameters():
-    #     param.requires_grad = False
-    
-    # return
 
-    # for name, param in model.named_parameters():
-    #     print(f"Name: {name}")
-    #     print(f"Parameter: {param}")
-    #     print(f"Parameter shape: {param.shape}")
-    #     print("-" * 50)
 
     def preprocess_function(examples):
         # Tokenize the texts
@@ -561,19 +532,12 @@ def main():
     # You can define your custom compute_metrics function. It takes an `EvalPrediction` object (a namedtuple with a
     # predictions and label_ids field) and has to return a dictionary string to float.
 
-    # print(f"grad: {model.classifier.weight.grad}")
-
-
     def compute_metrics(p: EvalPrediction, task=None):
         preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
         preds = np.squeeze(preds) if is_regression else np.argmax(preds, axis=1)
         metric = load_metric("accuracy")
         result = metric.compute(predictions=preds, references=p.label_ids)
-        # if len(result) > 1:
-        #     result["combined_score"] = np.mean(list(result.values())).item()
-        # return result
     
-        # return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
         if data_args.task_name is not None:
             metric = load_metric("glue", data_args.task_name)
             result = metric.compute(predictions=preds, references=p.label_ids)
@@ -598,26 +562,20 @@ def main():
         data_collator = DataCollatorWithPadding(tokenizer, pad_to_multiple_of=8)
     else:
         data_collator = None
+    eval_len = 0
+    train_len = 0
+    for i in range(len(train_dataset_arr)):
+        train_len += len(train_dataset_arr[i])
+        eval_len += len(eval_dataset_arr[i])
 
-    
 
-# Apply the new feature schema to both datasets
-    
-
-    # return
     logger.info(
-        f"************* {len(train_dataset_arr)} Training Examples Loaded *************")
+        f"************* {train_len} Training Examples Loaded *************")
     logger.info(
-        f"************* {len(eval_dataset)} Evaluation Examples Loaded *************")
+        f"************* {eval_len} Evaluation Examples Loaded *************")
 
     model.resize_token_embeddings(len(tokenizer))
-    # teacher_model.resize_token_embeddings(len(tokenizer))
-
-    # torch.set_printoptions(threshold=torch.inf)
-
-
-
-
+    
     trainer = CoFiTrainer(
         model=model,
         args=training_args,
@@ -634,10 +592,7 @@ def main():
 
     
 
-    # return
     if training_args.do_train:
-
-        # trainer.prelim_train(combined_raw_datasets)
         trainer.train()
         trainer.save_model()
         tokenizer.save_pretrained(training_args.output_dir)

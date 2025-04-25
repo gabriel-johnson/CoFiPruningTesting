@@ -897,9 +897,16 @@ class CoFiTrainer(Trainer):
                     logger.info(
                         f"{self.additional_args.layer_distill_version} version is not specified.")
                     sys.exit()
-
                 layerwise = torch.arange(len(specified_teacher_layers)).to(device)
+                # logger.info(f"\n************************LAYERWISE: {layerwise}************************************\n")
+                if not (layerwise < layerwiseloss.size(0)).all():
+                    logger.info("**********ABCDFESDJFK Layerwise too big!!!!*******")
+                    return None
+                if not (alignment < layerwiseloss.size(1)).all():
+                    logger.info("**********ABCDFESDJFKH alignment too big!!!!*******")
+                    return None
                 layer_loss += layerwiseloss[layerwise, alignment].sum() #! layerwise: teacher (specified layers) / alignment: student (min loss layers) / layerwiseloss: [4,12]
+                # logger.info(f"\n************************LAYER LOSS: {layer_loss}************************************\n")
                 if self.global_step % 100 == 0:
                     logger.info(f"v{self.additional_args.layer_distill_version} Global step: {self.global_step}, Alignment: " + str(alignment))
             return layer_loss
@@ -908,6 +915,8 @@ class CoFiTrainer(Trainer):
           
     def calculate_distillation_loss(self, teacher_outputs, student_outputs, zs):
         layer_loss = self.calculate_layer_distillation_loss(teacher_outputs, student_outputs, zs)
+        # print(f"\n************************LAYER LOSS (outside): {layer_loss}************************************\n")
+
         distill_loss = layer_loss
 
         ce_distill_loss = F.kl_div(
