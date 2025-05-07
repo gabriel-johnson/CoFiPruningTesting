@@ -899,12 +899,15 @@ class CoFiTrainer(Trainer):
                     sys.exit()
                 layerwise = torch.arange(len(specified_teacher_layers)).to(device)
                 # logger.info(f"\n************************LAYERWISE: {layerwise}************************************\n")
+                
 
-                if not layerwiseloss.shape == (4, 12):
-                    logger.info("**********Layerwise misshapen!*******")
+                if layerwiseloss.shape != torch.Size([4, 12]) or (((layerwise < 0) & layerwise >= 4).all()).item() or (((alignment < 0) & alignment >= 12).all()).item():
+                    logger.info(f"WRONG LAYERWISELOSS SHAPE!!!: {layerwiseloss.shape}")
+
                     return None
-              
-                layer_loss += layerwiseloss[layerwise, alignment].sum() #! layerwise: teacher (specified layers) / alignment: student (min loss layers) / layerwiseloss: [4,12]
+                layer_loss += layerwiseloss[layerwise, alignment].sum() 
+
+                     
                 # logger.info(f"\n************************LAYER LOSS: {layer_loss}************************************\n")
                 if self.global_step % 100 == 0:
                     logger.info(f"v{self.additional_args.layer_distill_version} Global step: {self.global_step}, Alignment: " + str(alignment))
