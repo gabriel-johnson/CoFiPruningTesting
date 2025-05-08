@@ -900,6 +900,7 @@ class CoFiTrainer(Trainer):
                 layerwise = torch.arange(len(specified_teacher_layers)).to(device)
                 # logger.info(f"\n************************LAYERWISE: {layerwise}************************************\n")
                 
+                logger.info(f"\nlayerwiseloss shape: {layerwiseloss.shape}\nlayerwise: {layerwise}\nalignment: {alignment}")
 
                 if layerwiseloss.shape != torch.Size([4, 12]) or (((layerwise < 0) & layerwise >= 4).all()).item() or (((alignment < 0) & alignment >= 12).all()).item():
                     logger.info(f"WRONG LAYERWISELOSS SHAPE!!!: {layerwiseloss.shape}")
