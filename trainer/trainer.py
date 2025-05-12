@@ -321,7 +321,9 @@ class CoFiTrainer(Trainer):
         for epoch in range(epochs_trained, int(np.ceil(num_train_epochs))): #! 20 epoch
             epoch_start = time.time()
 
-            self.epoch_factor = (int(np.ceil(num_train_epochs)) + 1)
+            self.epoch_factor = (int(np.ceil(num_train_epochs)) + 1 - epoch)
+
+            logger.info(f"\n********epoch_factor: {self.epoch_factor}*********\n")
 
             if isinstance(train_dataloader_arr[0], DataLoader) and isinstance(train_dataloader_arr[0].sampler, DistributedSampler):
                 train_dataloader_arr[0].sampler.set_epoch(epoch)
@@ -903,14 +905,14 @@ class CoFiTrainer(Trainer):
                 # logger.info(f"\nlayerwiseloss shape: {layerwiseloss.shape}\nlayerwise: {layerwise}\nalignment: {alignment}")
                 # alignment = torch.tensor([12, 12, 12, 12])
 
-                if (layerwiseloss.shape != torch.Size([4, 12]) or 
-                    (torch.all(layerwise < 0)).item() or 
-                    (torch.all(layerwise >= 4)).item() or
-                    (torch.all(alignment < 0)).item() or 
-                    (torch.all(alignment >= 12)).item()):
-                    logger.info(f"WRONG LAYERWISELOSS SHAPE!!!: {layerwiseloss.shape}")
+                # if (layerwiseloss.shape != torch.Size([4, 12]) or 
+                #     (torch.all(layerwise < 0)).item() or 
+                #     (torch.all(layerwise >= 4)).item() or
+                #     (torch.all(alignment < 0)).item() or 
+                #     (torch.all(alignment >= 12)).item()):
+                #     logger.info(f"WRONG LAYERWISELOSS SHAPE!!!: {layerwiseloss.shape}")
 
-                    return None
+                #     return None
                 layer_loss += layerwiseloss[layerwise, alignment].sum() 
 
                      
