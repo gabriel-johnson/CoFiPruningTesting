@@ -255,7 +255,7 @@ class L0Module(Module):
 
     def get_target_sparsity(self, pruned_steps, epoch_factor):
         target_sparsity = (self.target_sparsity - self.start_sparsity) * min(1, pruned_steps / self.lagrangian_warmup) + self.start_sparsity
-        return (target_sparsity * epoch_factor)
+        return (target_sparsity * math.sqrt(epoch_factor))
 
 
     def lagrangian_regularization(self, pruned_steps, epoch_factor):
