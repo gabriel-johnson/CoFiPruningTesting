@@ -59,6 +59,7 @@ class L0Module(Module):
 
         self.hidden_loga = None
         self.hidden_type = None
+        self.current_sparsity = None
 
         types = self.pruning_type.split("+")
         for type in types:
@@ -254,6 +255,9 @@ class L0Module(Module):
 
 
     def get_target_sparsity(self, pruned_steps, epoch_factor):
+        
+        if self.current_sparsity and self.target_sparsity <= self.current_sparsity:
+            return self.target_sparsity
         target_sparsity = (self.target_sparsity - self.start_sparsity) * min(1, pruned_steps / self.lagrangian_warmup) + self.start_sparsity
         return (target_sparsity * math.sqrt(epoch_factor))
 
@@ -343,7 +347,7 @@ class L0Module(Module):
         results["head_nums"] = remaining_head_nums
         results["pruned_params"] = pruned_model_size
         results["remaining_params"] = remaining_model_size
-        results["pruned_model_sparsity"] = pruned_model_size / self.prunable_model_size
+        results["pruned_model_sparsity"] =  self.current_sparsity = pruned_model_size / self.prunable_model_size
         
         logger.info(f"remaining_head_layers: {head_layer_z}")
         logger.info(f"remaining_mlp_layers: {mlp_z}")
@@ -352,6 +356,7 @@ class L0Module(Module):
         logger.info(f"remaining_head_nums: {remaining_head_nums}")
         logger.info(f"pruned_model_size: {pruned_model_size}")
         logger.info(f"remaining_model_size: {remaining_model_size}")
+        logger.info(f"final_target_sparsity: {self.target_sparsity}")
 
         return results
 
