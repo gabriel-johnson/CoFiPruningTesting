@@ -321,7 +321,10 @@ class CoFiTrainer(Trainer):
         for epoch in range(epochs_trained, int(np.ceil(num_train_epochs))): #! 20 epoch
             epoch_start = time.time()
 
-            self.epoch_factor = (int(np.ceil(num_train_epochs)) + 1 - epoch)
+            self.epoch_factor = (int(np.ceil(num_train_epochs)) - epoch)
+            
+            if self.epoch_factor <= 0:
+                self.epoch_factor = 1
 
             logger.info(f"\n********epoch_factor: {self.epoch_factor}*********\n")
 
@@ -355,10 +358,10 @@ class CoFiTrainer(Trainer):
             while step < total_dataloader_len:
 
                
-                if self.global_step == 5000:
-                    eval_scale_factor = len(self.train_dataset)
-                    for param in model.parameters():
-                        param.requires_grad = True
+                # if self.global_step == 5000:
+                #     eval_scale_factor = len(self.train_dataset)
+                #     for param in model.parameters():
+                #         param.requires_grad = True
 
                 probs = self.batch_method(loss_arr)
                 alpha = 1. - 0.8 * epoch / (num_train_epochs - 1)
