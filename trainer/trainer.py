@@ -103,9 +103,6 @@ class CoFiTrainer(Trainer):
         self.l0_optimizer = None
         self.lagrangian_optimizer = None
 
-
-        self.epoch_factor = 0
-
         self.eval_counter = Eval_Counter()
         self.start_saving_best = True if self.additional_args.pruning_type is None else False
         self.additional_train = additional_train
@@ -321,13 +318,6 @@ class CoFiTrainer(Trainer):
         for epoch in range(epochs_trained, int(np.ceil(num_train_epochs))): #! 20 epoch
             epoch_start = time.time()
 
-            self.epoch_factor = (int(np.ceil(num_train_epochs)) - epoch)
-            
-            if self.epoch_factor <= 0:
-                self.epoch_factor = 1
-
-            logger.info(f"\n********epoch_factor: {self.epoch_factor}*********\n")
-
             if isinstance(train_dataloader_arr[0], DataLoader) and isinstance(train_dataloader_arr[0].sampler, DistributedSampler):
                 train_dataloader_arr[0].sampler.set_epoch(epoch)
 
@@ -357,11 +347,11 @@ class CoFiTrainer(Trainer):
 
             while step < total_dataloader_len:
 
-               
-                # if self.global_step == 5000:
-                #     eval_scale_factor = len(self.train_dataset)
-                #     for param in model.parameters():
-                #         param.requires_grad = True
+
+                if self.global_step == 5000:
+                    eval_scale_factor = len(self.train_dataset)
+                    for param in model.parameters():
+                        param.requires_grad = True
 
                 probs = self.batch_method(loss_arr)
                 alpha = 1. - 0.8 * epoch / (num_train_epochs - 1)
@@ -704,7 +694,7 @@ class CoFiTrainer(Trainer):
 
         if zs is not None:
             lag_loss, expected_sparsity, target_sparsity = self.l0_module.lagrangian_regularization(
-                self.global_step - self.prepruning_finetune_steps, self.epoch_factor)
+                self.global_step - self.prepruning_finetune_steps)
 
             expected_sparsity = round(expected_sparsity.item(), 5)
             metrics.update(pruned_model_size_info)
@@ -902,24 +892,9 @@ class CoFiTrainer(Trainer):
                     logger.info(
                         f"{self.additional_args.layer_distill_version} version is not specified.")
                     sys.exit()
+
                 layerwise = torch.arange(len(specified_teacher_layers)).to(device)
-                # logger.info(f"\n************************LAYERWISE: {layerwise}************************************\n")
-                
-
-                if (layerwiseloss.shape != torch.Size([4, 12]) or 
-                    (torch.all(layerwise < 0)).item() or 
-                    (torch.all(layerwise >= 4)).item() or
-                    (torch.all(alignment < 0)).item() or 
-                    (torch.all(alignment >= 12)).item()):
-                    logger.info(f"\nlayerwiseloss shape: {layerwiseloss.shape}\nlayerwise: {layerwise}\nalignment: {alignment}")
-
-                    # logger.info(f"WRONG LAYERWISELOSS SHAPE!!!: {layerwiseloss.shape}")
-                    return None
-
-                layer_loss += layerwiseloss[layerwise, alignment].sum() 
-
-                     
-                # logger.info(f"\n************************LAYER LOSS: {layer_loss}************************************\n")
+                layer_loss += layerwiseloss[layerwise, alignment].sum() #! layerwise: teacher (specified layers) / alignment: student (min loss layers) / layerwiseloss: [4,12]
                 if self.global_step % 100 == 0:
                     logger.info(f"v{self.additional_args.layer_distill_version} Global step: {self.global_step}, Alignment: " + str(alignment))
             return layer_loss
@@ -928,8 +903,6 @@ class CoFiTrainer(Trainer):
           
     def calculate_distillation_loss(self, teacher_outputs, student_outputs, zs):
         layer_loss = self.calculate_layer_distillation_loss(teacher_outputs, student_outputs, zs)
-        # print(f"\n************************LAYER LOSS (outside): {layer_loss}************************************\n")
-
         distill_loss = layer_loss
 
         ce_distill_loss = F.kl_div(
@@ -985,7 +958,7 @@ class CoFiTrainer(Trainer):
         if self.start_prune:
             lagrangian_loss, _, _ = \
                 self.l0_module.lagrangian_regularization(
-                    self.global_step - self.prepruning_finetune_steps, self.epoch_factor)
+                    self.global_step - self.prepruning_finetune_steps)
             loss += lagrangian_loss
 
         if self.args.gradient_accumulation_steps > 1:

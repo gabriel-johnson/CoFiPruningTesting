@@ -59,7 +59,6 @@ class L0Module(Module):
 
         self.hidden_loga = None
         self.hidden_type = None
-        self.current_sparsity = None
 
         types = self.pruning_type.split("+")
         for type in types:
@@ -254,23 +253,20 @@ class L0Module(Module):
         return num_parameters
 
 
-    def get_target_sparsity(self, pruned_steps, epoch_factor):
-        
-        if self.current_sparsity and self.target_sparsity <= self.current_sparsity:
-            return self.target_sparsity
+    def get_target_sparsity(self, pruned_steps):
         target_sparsity = (self.target_sparsity - self.start_sparsity) * min(1, pruned_steps / self.lagrangian_warmup) + self.start_sparsity
-        return (target_sparsity * math.sqrt(epoch_factor))
+        return target_sparsity
 
 
-    def lagrangian_regularization(self, pruned_steps, epoch_factor):
-        target_sparsity = self.target_sparsity 
+    def lagrangian_regularization(self, pruned_steps):
+        target_sparsity = self.target_sparsity
         if "hidden" in self.types:
             expected_size = self.get_num_parameters_and_constraint_for_hidden() #! calculate \bar s
         else:
             expected_size = self.get_num_parameters_and_constraint() #! calculate \bar s
         expected_sparsity = 1 - expected_size / self.prunable_model_size
         if self.lagrangian_warmup > 0:
-            target_sparsity = self.get_target_sparsity(pruned_steps, epoch_factor)
+            target_sparsity = self.get_target_sparsity(pruned_steps)
         lagrangian_loss = ( #! see appendix
                 self.lambda_1 * (expected_sparsity - target_sparsity)
                 + self.lambda_2 * (expected_sparsity - target_sparsity) ** 2 #! where is the lambda 1 and lambda 2 from
@@ -307,7 +303,6 @@ class L0Module(Module):
             else:
                 _, indices = torch.topk(soft_mask, k=num_zeros, largest=False)
                 soft_mask[indices] = 0.
-            
         return soft_mask
 
     def get_z_from_zs(self, zs):
@@ -347,7 +342,7 @@ class L0Module(Module):
         results["head_nums"] = remaining_head_nums
         results["pruned_params"] = pruned_model_size
         results["remaining_params"] = remaining_model_size
-        results["pruned_model_sparsity"] =  self.current_sparsity = pruned_model_size / self.prunable_model_size
+        results["pruned_model_sparsity"] = pruned_model_size / self.prunable_model_size
         
         logger.info(f"remaining_head_layers: {head_layer_z}")
         logger.info(f"remaining_mlp_layers: {mlp_z}")
@@ -356,17 +351,19 @@ class L0Module(Module):
         logger.info(f"remaining_head_nums: {remaining_head_nums}")
         logger.info(f"pruned_model_size: {pruned_model_size}")
         logger.info(f"remaining_model_size: {remaining_model_size}")
-        logger.info(f"final_target_sparsity: {self.target_sparsity}")
 
         return results
 
         
 
-    def forward(self, training=True):
+    def forward(self, training=True,):
         zs = {f"{type}_z": [] for type in self.types}
 
         if training:
             for i, type in enumerate(self.types):
+                # print(f"IDK IF WE GET HERE BUT HERE IS TYPE (train) {type}")
+                # print(f"\nhere actual\n {zs}")
+
                 loga = self.z_logas[type]
                 z = self._sample_z(loga)
                 zs[f"{type}_z"] = z.reshape(self.shapes[type])
@@ -384,6 +381,9 @@ class L0Module(Module):
                     z = self._deterministic_z(self.sizes[type], self.hidden_loga)
                     zs[f"{type}_z"] = z
             for type in zs:
+                # print(f"IDK IF WE GET HERE BUT HERE IS TYPE {type}")
+                # print(f"\nhere actual\n {zs}")
+
                 if type != "hidden_z":
                     zs[type] = torch.stack(zs[type])
             
