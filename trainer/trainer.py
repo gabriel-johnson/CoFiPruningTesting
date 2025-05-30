@@ -102,6 +102,7 @@ class CoFiTrainer(Trainer):
 
         self.l0_optimizer = None
         self.lagrangian_optimizer = None
+        self.prune_again = 0
 
         self.eval_counter = Eval_Counter()
         self.start_saving_best = True if self.additional_args.pruning_type is None else False
@@ -736,6 +737,12 @@ class CoFiTrainer(Trainer):
         eval_score = sum(loss_arr) / len(loss_arr)
         best_so_far = self.eval_counter.update(
                 self.epoch, self.global_step, eval_score)
+
+        if eval_score + 2.5 <= self.eval_counter.best_eval_score:
+            logger.info("******Pausing Prune for 10 steps!********")
+            self.start_prune = False
+            self.prune_again = 10;
+
         if best_so_far:
             best_dir = os.path.join(self.args.output_dir, "best")
             if not os.path.exists(best_dir):
@@ -954,6 +961,8 @@ class CoFiTrainer(Trainer):
             loss = self.compute_loss(model, inputs)
 
 
+        # logger.info(f"\n\n\nLOSS LOSS LOSS: {loss}\n\n\n")
+
         lagrangian_loss = None
         if self.start_prune:
             lagrangian_loss, _, _ = \
@@ -966,6 +975,11 @@ class CoFiTrainer(Trainer):
 
 
         loss.backward()
+
+        if self.prune_again:
+            self.prune_again -= 1
+            if self.prune_again == 0:
+                self.start_prune = True
         
         return {"loss": loss.detach(),
                 "lagrangian_loss": lagrangian_loss.detach() if lagrangian_loss is not None else None,

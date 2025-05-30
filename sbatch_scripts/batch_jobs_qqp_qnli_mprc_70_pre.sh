@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH -J BOTH_75                                              
+#SBATCH -J BOTH_70                                              
 #SBATCH -A eecs   
 #SBATCH -p dgx2                                                           
-#SBATCH -o out/qqp_qnli_mrpc_75_pre_out                           
-#SBATCH -e out/qqp_qnli_mrpc_75_pre_err                         
+#SBATCH -o out/qqp_qnli_mrpc_70_pre_out                           
+#SBATCH -e out/qqp_qnli_mrpc_70_pre_err                         
 
 #SBATCH --time=1-00:00:00                 
 #SBATCH --gres=gpu:1                         
@@ -17,4 +17,4 @@ module load python/3.10
 module load cuda/12.1
 module load openssl/3.1.5
 
-bash sbatch_scripts/setup_qqp_qnli_mrpc_75_both.sh
+bash sbatch_scripts/setup_qqp_qnli_mrpc_70_pre.sh
