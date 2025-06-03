@@ -738,7 +738,7 @@ class CoFiTrainer(Trainer):
         best_so_far = self.eval_counter.update(
                 self.epoch, self.global_step, eval_score)
 
-        if eval_score + 2.5 <= self.eval_counter.best_eval_score:
+        if eval_score + 1 <= self.eval_counter.best_eval_score:
             logger.info("******Pausing Prune for 10 steps!********")
             self.start_prune = False
             self.prune_again = 10;
