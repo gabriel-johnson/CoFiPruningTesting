@@ -713,7 +713,6 @@ class CoFiTrainer(Trainer):
 
     def evaluate_multiple(self, loss_arr, eval_dataset: Optional[Dataset] = None) -> Tuple[Dict[str, float], List]:
         
-
         task_list = self.model.config.finetuning_task
         teach_model = self.teacher_model
         eval_dataset = self.eval_dataset
@@ -738,11 +737,12 @@ class CoFiTrainer(Trainer):
         best_so_far = self.eval_counter.update(
                 self.epoch, self.global_step, eval_score)
 
-        if eval_score + 1 <= self.eval_counter.best_eval_score:
+        if eval_score + 0.5 <= self.eval_counter.best_eval_score:
             logger.info("******Pausing Prune for 10 steps!********")
             self.start_prune = False
             self.prune_again = 10;
-
+        
+    
         if best_so_far:
             best_dir = os.path.join(self.args.output_dir, "best")
             if not os.path.exists(best_dir):
