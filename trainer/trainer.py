@@ -740,7 +740,7 @@ class CoFiTrainer(Trainer):
         if eval_score + 0.5 <= self.eval_counter.best_eval_score:
             logger.info("******Pausing Prune for 10 steps!********")
             self.start_prune = False
-            self.prune_again = 100;
+            self.prune_again = 50;
         
     
         if best_so_far:

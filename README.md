@@ -12,26 +12,33 @@ This repository contains the code and pruned models for our ACL'22 paper [Struct
 
 ### Setup Changes
 
-Dataloading had been done just in ```main()``` of ```run_glue_prune.py```. This has since been changed to a local function ```load_data``` that may be called multiple times. This allows you to create an array of each dataset that the model will be trained on.
+Dataloading had been done just in ```main()``` of ```run_glue_prune.py```. This has since been changed to a local function ```load_data``` that may be called multiple times. This allows you to create an array of each dataset that the model will be trained on. This was done so that batches can be of a single task during training. 
 
-Many other sections of ```main()``` in ```run_glue_prune.py``` have been modified. Many are now implemented in ```for``` loops to accomadte more than one dataset. Some of these loops are only entered if there are multiple tasks, however as currently setup this repository may not be suitable for single tasks.
+Many other sections of ```main()``` in ```run_glue_prune.py``` have been modified. Many are now implemented in ```for``` loops to accomadte more than one dataset. Some of these loops are only entered if there are multiple tasks, however as currently setup this repository may not be suitable for single tasks. For example, setting up labels in the train dataset has to be done for each task, so there is a ```for``` loop to iterate over the array of datasets and label them each properly.
 
-Each train, validation, and test dataset samples now get appeneded with a special token indicating their task. This is essential for knowing which output head to use during training, validation, and testing.
+Each train, validation, and test dataset samples now get appeneded with a special token indicating their task. This is essential for knowing which output head to use during training, validation, and testing. These tokens are in the form <task_name>. Additionally, there is a space following the token, though I'm not sure if this is necesary. The tokens are added in the file ```data_formater.py```. Some of the datasets have different shapes, and currently not all are accomadated in this file, but adding so would be trivial.
 
-The training dataset is now an array of each tasks' training set. Which task to choose from is explained below. The same is true for the evaluation set, however, the evaluation is done for each task individually. Testing is to be done on one task at a time. 
+The training dataset is now an array of each tasks' training set. Which task to choose from is explained below. The same is true for the evaluation set, however, the evaluation is done for each task individually. This is done so that each dataset can be evaluated against the metrics they're intended to be. The model is saved when the *average* score is the highest accross all tasks. Testing is to be done on one task at a time, using the ```evaluation.py``` script. The only changes to this script is to add tokens to the data so that the model can properly evaluate them. This is done in the exact same way as the training and evaluation script, using ```date_formater.py```
 
-Additionally the label names for each dataset have been changed. This is currently only implemented for the binary classification tasks of GLUE,
-so MNLI is not supported at this time. The label names have simply been overwritten to 0: negative and 1: positive. This is likely redundant and all label names could be removed leaving just the labels themselves.
+Additionally the label names for each dataset have been changed. This is currently only implemented for the binary classification tasks of GLUE, so MNLI is not supported at this time. The label names have simply been overwritten to 0: negative and 1: positive. This is likely redundant and all label names could be removed leaving just the labels themselves.
+
+Currently, during training when there is an evaluation that scores 0.5% or more worse than the best evaluation so far, the pruning will be paused for 50 steps. This is done in the function ```evaluate_multiple``` in ```trainer.py```. This has yet to lead to better results, and with all testing I've done thus far been redundant. 
 
 ### Model Changes
 
 The most major change is that the model now has an output head for each task. This has proven to be the only way to have succesful multi task pruning for this implementation. Each output head is initialized with weights for a pretrained version of BERT corresponding to the task that head is responsible for. This is done by downloading a specific pretrained model for the task, and copying the classification layer to the output head for that task.
 
-Furthermore, there are now teacher models for each task. These teachermodels are the same mdoels whose output heads correspond to the student models'.
+This has been done in ```run_glue_prune.py``` as the teacher model is initialized. There is a map that links tasks to pretrained models called ``task_to_teacher_models```.
+
+Furthermore, there are now teacher models for each task. These teachermodels are the same models whose output heads correspond to the student models'.
 
 ### Training Changes
 
-Training has been modified in a few key ways. Firstly, evaluation is run for each task seperatly, rather than as a whole. This allows the loss for each individual task to be calculated seperarly. This is then used in the dataloading, the second major change. There is currently dataloading that is similar to annealed sampling, but it also incorperates the loss of each task. The probability that a given task will be selected to be trained on next is sqrt(training_set_size) * loss_for_task. Finally, evaluation is run less frequently after 5000 global steps. 
+Training has been modified in a few key ways. Firstly, evaluation is run for each task seperatly, rather than as a whole. This allows the loss for each individual task to be calculated seperarly. This is then used in the dataloading, the second major change. There is currently dataloading that is similar to annealed sampling, but it also incorperates the loss of each task. The probability that a given task will be selected to be trained on next is sqrt(training_set_size) * loss_for_task. This allows tasks to each have their own batches as the training runs. It also helps to prevent over/underfitting as the datasets vary a lot in size. 
+
+Finally, evaluation is run less frequently after 5000 global steps. This did not change the accuracy, but did improve the running time for training. Because evaluation is done for each task individually, the time it takes to evaluate is much larger than for a single task. That is why this change was made.  
+
+
 
 
 
