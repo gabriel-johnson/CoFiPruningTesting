@@ -135,17 +135,7 @@ class CoFiTrainer(Trainer):
                     "weight_decay": self.args.weight_decay,
                     "lr": self.args.learning_rate
                 },
-                # {
-                #     "params": [p for n, p in self.model.named_parameters() if any(nd in n for nd in no_decay) and not any(fk in n for fk in freeze_keywords)],
-                #     "weight_decay": 0.0,
-                #     "lr": self.args.learning_rate
-                # },
             ]
-
-            # print(f"\nmain_model_params: {main_model_params}\n")
-
-            # print(f"model: {self.model}")
-            # print(f"grad?: {self.model.classifier.weight.grad}")
             log_params(main_model_params, "main params")
             self.optimizer = AdamW(
                 main_model_params,
@@ -196,11 +186,9 @@ class CoFiTrainer(Trainer):
         # Create the directory if it doesn't exist
         os.makedirs(directory, exist_ok=True)
         
-        self.prepruning_finetune_steps = self.prepruning_finetune_steps * 10 #len(self.train_dataset)
-
+        self.prepruning_finetune_steps = self.prepruning_finetune_steps * 10 
         if self.train_dataset is None:
             raise ValueError("Trainer: training requires a train_dataset.")
-        # train_sampler = self._get_train_sampler()
 
         train_dataloader_arr = []
         total_dataloader_len = 0
@@ -222,7 +210,6 @@ class CoFiTrainer(Trainer):
 
         if self.l0_module is not None:
             lagrangian_warmup_steps = self.additional_args.lagrangian_warmup_epochs * num_update_steps_per_epoch #! 24544
-            # self.prepruning_finetune_steps = self.additional_args.prepruning_finetune_epochs * num_update_steps_per_epoch
             self.l0_module.set_lagrangian_warmup_steps(lagrangian_warmup_steps)
             logger.info(f"Prepruning finetune steps: {self.prepruning_finetune_steps}")
             logger.info(f"Lagrangian warmup steps: {lagrangian_warmup_steps}")
@@ -342,9 +329,6 @@ class CoFiTrainer(Trainer):
             task = None
 
             count = 0
-            # samping method from https://github.com/AsaCooperStickland/Bert-n-Pals/blob/master/run_multi_task.py
-
-            
 
             while step < total_dataloader_len:
 
@@ -359,21 +343,12 @@ class CoFiTrainer(Trainer):
                 probs = [p**alpha for p in probs]
                 tot = sum(probs)
                 probs = [p/tot for p in probs]
-                # samping method from https://github.com/AsaCooperStickland/Bert-n-Pals/blob/master/run_multi_task.py
+                # sampling method from https://github.com/AsaCooperStickland/Bert-n-Pals/blob/master/run_multi_task.py
                 
                 count = np.random.choice(len(self.train_dataset), p=probs)
-                # if(step % 10 == 0):
-                #     print(f"count: {count}")
-
-                # if(step % 100 == 0):
-                #     print(f"probs: {probs}")
-                    
                 inputs = next(iter(train_dataloader_arr[count]))
 
-                # print(f"inputs: {inputs}")
                 self.teacher_model=teacher_model[count]
-
-                # self.start_prune = False
 
                 if(epoch == num_train_epochs): #we are done with pruning and will now run one epoch of post-training
                     self.start_prune = False
@@ -400,10 +375,6 @@ class CoFiTrainer(Trainer):
                     self.fill_inputs_with_zs(zs, inputs) #! use the zs
 
                 loss_terms = self.training_step(model, inputs)
-                # print(f"inputs:{inputs}")
-                # print("\n\n")
-                # print(f"loss_terms: {loss_terms}")
-
                 tr_loss_step = loss_terms["loss"]
                 lag_loss_step = loss_terms["lagrangian_loss"]
 
@@ -418,12 +389,7 @@ class CoFiTrainer(Trainer):
                 ):
                     torch.nn.utils.clip_grad_norm_(
                         model.parameters(), self.args.max_grad_norm)
-                    # if step % 500 == 0:
-                    # print(f"main_model_params before: {self.optimizer.param_groups}")
                     self.optimizer.step()
-                    # if step % 500 == 0:
-                    # print(f"main_model_params after: {self.optimizer.param_groups}")
-
 
                     if self.l0_module is not None and self.l0_optimizer is not None:
                         self.l0_optimizer.step()
@@ -490,7 +456,6 @@ class CoFiTrainer(Trainer):
                     break
                 step += 1
             epoch_end = time.time()
-            # wandb.log({'epoch':epoch})
             logger.info(
                 f"Epoch {epoch} finished. Took {round(epoch_end - epoch_start, 2)} seconds.")
 
@@ -507,8 +472,6 @@ class CoFiTrainer(Trainer):
         if self.args.past_index and hasattr(self, "_past"):
             # Clean the state at the end of training
             delattr(self, "_past")
-
-        # wandb.log({'global_step':self.global_step,'training_loss':tr_loss.item() / self.global_step})
 
         if self.additional_train == 0 or self.additional_train == 2:
             for name, param in model.named_parameters():
@@ -538,12 +501,6 @@ class CoFiTrainer(Trainer):
             # samping method from https://github.com/AsaCooperStickland/Bert-n-Pals/blob/master/run_multi_task.py
             
             count = np.random.choice(len(self.train_dataset), p=probs)
-            # if(step % 10 == 0):
-            #     print(f"count: {count}")
-
-            # if(step % 100 == 0):
-            #     print(f"probs: {probs}")
-                
             inputs = next(iter(train_dataloader_arr[count]))
             model = self.model
 
@@ -567,15 +524,9 @@ class CoFiTrainer(Trainer):
             if (step + 1) % self.args.gradient_accumulation_steps == 0:
                     torch.nn.utils.clip_grad_norm_(
                         model.parameters(), self.args.max_grad_norm)
-                    # if step % 500 == 0:
-                    # print(f"main_model_params before: {self.optimizer.param_groups}")
+        
                     self.lr_scheduler.step()
-
                     self.optimizer.step()
-                    # if step % 500 == 0:
-                    # print(f"main_model_params after: {self.optimizer.param_groups}")
-
-
                     model.zero_grad()
 
                     if step % eval_steps == 0:
@@ -583,17 +534,9 @@ class CoFiTrainer(Trainer):
 
 
             if self.args.gradient_accumulation_steps > 1:
-                loss = loss / self.args.gradient_accumulation_steps
-
-
-
-
-            
+                loss = loss / self.args.gradient_accumulation_steps     
         epoch_pbar.close()
-        
-
-
-
+ 
     def prediction_loop(self, dataloader: DataLoader, description: str, prediction_loss_only: Optional[bool] = None) -> PredictionOutput:
         prediction_loss_only = (
             prediction_loss_only if prediction_loss_only is not None else self.args.prediction_loss_only
@@ -776,7 +719,6 @@ class CoFiTrainer(Trainer):
         eval_score = 0
 
         name = glue_tasks[self.model.config.finetuning_task]
-        # name = "accuracy"
         if isinstance(name, str):
             if name in output.metrics:
                 eval_score = output.metrics[name]
@@ -785,8 +727,6 @@ class CoFiTrainer(Trainer):
                 if na in output.metrics:
                     eval_score = output.metrics[na]
                     break
-
-        # logger.info(f"starting saving best: {self.global_step} {self.start_saving_best}")
 
         if self.start_saving_best and not isinstance(self.model.config.finetuning_task, list):
             best_so_far = self.eval_counter.update(
@@ -821,7 +761,6 @@ class CoFiTrainer(Trainer):
         if self.additional_args.do_layer_distill: #! only do layer distill
             mlp_z = None
             head_layer_z = None
-            # logger.info(f"zs={zs}")
             if "mlp_z" in zs:
                 mlp_z = zs["mlp_z"].detach().cpu()
             if "head_layer_z" in zs:
@@ -959,9 +898,6 @@ class CoFiTrainer(Trainer):
 
         else:
             loss = self.compute_loss(model, inputs)
-
-
-        # logger.info(f"\n\n\nLOSS LOSS LOSS: {loss}\n\n\n")
 
         lagrangian_loss = None
         if self.start_prune:

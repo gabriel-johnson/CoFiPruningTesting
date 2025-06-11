@@ -361,8 +361,6 @@ class L0Module(Module):
 
         if training:
             for i, type in enumerate(self.types):
-                # print(f"IDK IF WE GET HERE BUT HERE IS TYPE (train) {type}")
-                # print(f"\nhere actual\n {zs}")
 
                 loga = self.z_logas[type]
                 z = self._sample_z(loga)
@@ -381,9 +379,6 @@ class L0Module(Module):
                     z = self._deterministic_z(self.sizes[type], self.hidden_loga)
                     zs[f"{type}_z"] = z
             for type in zs:
-                # print(f"IDK IF WE GET HERE BUT HERE IS TYPE {type}")
-                # print(f"\nhere actual\n {zs}")
-
                 if type != "hidden_z":
                     zs[type] = torch.stack(zs[type])
             
